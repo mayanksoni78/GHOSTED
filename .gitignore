@@ -1,0 +1,16 @@
+# Build directories
+build/
+bin/
+lib/
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+test_sandbox_ghostdisk/
