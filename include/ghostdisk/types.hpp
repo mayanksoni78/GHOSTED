@@ -122,4 +122,44 @@ struct DirectoryScanResult {
     std::string error_message;
 };
 
+/**
+ * @brief Reference to a process holding an open file descriptor.
+ */
+struct ProcessRef {
+    int64_t pid{0};
+    std::string process_name;
+    std::string user_name;
+    int fd{-1};
+    std::string target_hint;
+    uint64_t device_id{0};         // st_dev
+    uint64_t inode{0};             // st_ino
+    uint64_t apparent_bytes{0};    // st_size
+    uint64_t allocated_bytes{0};   // st_blocks * 512
+};
+
+/**
+ * @brief Aggregated finding for a deleted file held open by one or more processes.
+ */
+struct DeletedOpenFileFinding {
+    uint64_t inode{0};
+    uint64_t device_id{0};
+    std::string original_path;
+    uint64_t deduplicated_allocated_bytes{0};
+    uint64_t apparent_bytes{0};
+    std::vector<ProcessRef> holding_processes;
+};
+
+/**
+ * @brief Cumulative results from scanning processes for deleted-but-open file descriptors.
+ */
+struct ProcScanResult {
+    std::vector<DeletedOpenFileFinding> findings;
+    std::vector<int64_t> restricted_pids;
+    uint64_t total_reclaimable_bytes{0};
+    int64_t scan_duration_ms{0};
+    bool is_cancelled{false};
+    bool success{false};
+    std::string error_message;
+};
+
 } // namespace ghostdisk
