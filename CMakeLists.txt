@@ -12,18 +12,24 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Core library for Member 1 modules (and future modules)
+# Core library for Member 1 and Member 2 modules
 add_library(ghostdisk_core
     src/fs_scanner.cpp
     src/directory_scanner.cpp
+    src/proc_inspector.cpp
 )
 
 target_include_directories(ghostdisk_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Test executable
+# Test executables
 enable_testing()
+
 add_executable(test_scanners tests/test_scanners.cpp)
 target_link_libraries(test_scanners PRIVATE ghostdisk_core)
 add_test(NAME TestScanners COMMAND test_scanners)
+
+add_executable(test_proc_inspector tests/test_proc_inspector.cpp)
+target_link_libraries(test_proc_inspector PRIVATE ghostdisk_core)
+add_test(NAME TestProcInspector COMMAND test_proc_inspector)
