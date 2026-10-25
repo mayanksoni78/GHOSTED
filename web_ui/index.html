@@ -211,17 +211,17 @@
             <div class="math-flow">
               <div class="math-step">
                 <span class="math-label">Filesystem Used</span>
-                <span class="math-value">325.00 GB</span>
+                <span class="math-value" id="math-fs-used">325.00 GB</span>
               </div>
               <div class="math-operator">−</div>
               <div class="math-step">
                 <span class="math-label">Scanned Allocated</span>
-                <span class="math-value">280.00 GB</span>
+                <span class="math-value" id="math-scan-alloc">280.00 GB</span>
               </div>
               <div class="math-operator">=</div>
               <div class="math-step highlight-gap">
                 <span class="math-label">Raw Discrepancy</span>
-                <span class="math-value">45.00 GB</span>
+                <span class="math-value" id="math-raw-gap">45.00 GB</span>
               </div>
             </div>
 
@@ -229,15 +229,15 @@
               <h4>Evidence Attribution:</h4>
               <div class="reconcile-row">
                 <span>✓ Deduplicated Deleted-Open Files:</span>
-                <strong>- 25.40 GB</strong>
+                <strong id="reconcile-deleted">- 25.40 GB</strong>
               </div>
               <div class="reconcile-row">
                 <span>✓ Superuser Safety Reserve:</span>
-                <strong>- 15.00 GB</strong>
+                <strong id="reconcile-reserve">- 15.00 GB</strong>
               </div>
               <div class="reconcile-row border-top">
                 <span>Unexplained Remainder (Investigation Target):</span>
-                <strong class="text-amber">4.60 GB</strong>
+                <strong class="text-amber" id="reconcile-unresolved">4.60 GB</strong>
               </div>
             </div>
 
@@ -254,23 +254,23 @@
         <div class="metrics-row">
           <div class="metric-card">
             <span class="metric-lbl">Total Capacity</span>
-            <span class="metric-num">512.00 GB</span>
-            <span class="metric-hint">f_blocks × f_frsize</span>
+            <span class="metric-num" id="metric-total-capacity">512.00 GB</span>
+            <span class="metric-hint" id="metric-total-hint">f_blocks × f_frsize</span>
           </div>
           <div class="metric-card">
             <span class="metric-lbl">Raw Used</span>
-            <span class="metric-num text-blue">325.00 GB</span>
-            <span class="metric-hint">63.4% of device</span>
+            <span class="metric-num text-blue" id="metric-raw-used">325.00 GB</span>
+            <span class="metric-hint" id="metric-used-hint">63.4% of device</span>
           </div>
           <div class="metric-card">
             <span class="metric-lbl">User Available</span>
-            <span class="metric-num text-emerald">172.00 GB</span>
+            <span class="metric-num text-emerald" id="metric-user-avail">172.00 GB</span>
             <span class="metric-hint">Writeable by non-root</span>
           </div>
           <div class="metric-card">
             <span class="metric-lbl">Active Deleted Leaks</span>
-            <span class="metric-num text-purple">25.40 GB</span>
-            <span class="metric-hint">2 processes holding descriptors</span>
+            <span class="metric-num text-purple" id="metric-deleted-leaks">25.40 GB</span>
+            <span class="metric-hint" id="metric-deleted-hint">2 processes holding descriptors</span>
           </div>
         </div>
 
@@ -280,7 +280,7 @@
           <button class="link-btn" onclick="switchView('findings')">View All Findings →</button>
         </div>
 
-        <div class="findings-container">
+        <div class="findings-container" id="dashboard-findings-container">
           <div class="finding-card critical" onclick="openFindingModal(0)">
             <div class="finding-badge badge-critical">Critical — 18.20 GB</div>
             <div class="finding-main">

@@ -443,6 +443,72 @@ function loadLiveData(data) {
     segUnres.setAttribute('stroke-dashoffset', `-${dAccounted + dDeleted + dReserved}`);
   }
 
+  // Update Math Formula Card
+  const mathFs = document.getElementById('math-fs-used');
+  if (mathFs) mathFs.textContent = formatBytes(totalUsed);
+  const mathScan = document.getElementById('math-scan-alloc');
+  if (mathScan) mathScan.textContent = formatBytes(crawled);
+  const mathGap = document.getElementById('math-raw-gap');
+  if (mathGap) mathGap.textContent = formatBytes(Math.abs(totalUsed - crawled));
+
+  const recDel = document.getElementById('reconcile-deleted');
+  if (recDel) recDel.textContent = `- ${formatBytes(deleted)}`;
+  const recRes = document.getElementById('reconcile-reserve');
+  if (recRes) recRes.textContent = `- ${formatBytes(reserved)}`;
+  const recUnres = document.getElementById('reconcile-unresolved');
+  if (recUnres) recUnres.textContent = formatBytes(unresolved);
+
+  // Update 4 Metric Cards
+  const totalCap = data.total_bytes || 0;
+  const cardCap = document.getElementById('metric-total-capacity');
+  if (cardCap) cardCap.textContent = formatBytes(totalCap);
+
+  const cardUsed = document.getElementById('metric-raw-used');
+  if (cardUsed) cardUsed.textContent = formatBytes(totalUsed);
+  const cardUsedHint = document.getElementById('metric-used-hint');
+  if (cardUsedHint) {
+    cardUsedHint.textContent = totalCap > 0 ? `${(100.0 * totalUsed / totalCap).toFixed(1)}% of device` : "0% of device";
+  }
+
+  const cardAvail = document.getElementById('metric-user-avail');
+  if (cardAvail) cardAvail.textContent = formatBytes(data.available_bytes || 0);
+
+  const cardLeaks = document.getElementById('metric-deleted-leaks');
+  if (cardLeaks) cardLeaks.textContent = formatBytes(deleted);
+  const cardLeaksHint = document.getElementById('metric-deleted-hint');
+  if (cardLeaksHint) {
+    cardLeaksHint.textContent = `${FINDINGS_DATA.filter(f => f.title && f.title.toLowerCase().includes('deleted')).length} leak descriptors found`;
+  }
+
+  // Update Mount Option in Header
+  const mountSel = document.getElementById('mount-select');
+  if (mountSel && mountSel.options && mountSel.options[0]) {
+    mountSel.options[0].textContent = `${data.mount_point || '/'} (${data.device_name || 'System Mount'}) — ${formatBytes(totalCap)} ${data.filesystem_type || 'ext4'}`;
+  }
+
+  // Update Top Findings Preview Container on Dashboard
+  const dashContainer = document.getElementById('dashboard-findings-container');
+  if (dashContainer && FINDINGS_DATA.length > 0) {
+    dashContainer.innerHTML = '';
+    FINDINGS_DATA.slice(0, 3).forEach((f) => {
+      const card = document.createElement('div');
+      card.className = `finding-card ${f.severity.toLowerCase()}`;
+      card.onclick = () => openFindingModal(f.id);
+      card.innerHTML = `
+        <div class="finding-badge ${f.severityClass}">${f.severity} — ${f.relatedBytes}</div>
+        <div class="finding-main">
+          <h4>${f.title}</h4>
+          <p class="finding-summary">${f.summary || f.title}</p>
+        </div>
+        <div class="finding-action">
+          <span class="badge-guidance">${f.guidance || 'Guidance: Safe Inspection'}</span>
+          <button class="btn-inspect">Inspect Evidence</button>
+        </div>
+      `;
+      dashContainer.appendChild(card);
+    });
+  }
+
   // Audit entry
   AUDIT_DATA.unshift({
     time: new Date().toISOString().replace('T', ' ').substring(0, 19),
