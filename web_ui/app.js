@@ -1,4 +1,4 @@
-// GhostDisk Frontend Controller
+// GHOSTED Frontend Controller
 
 // Diagnostic Findings Data
 let FINDINGS_DATA = [
@@ -23,9 +23,9 @@ let FINDINGS_DATA = [
     explanation: "The log file was unlinked during rotation, but nginx was not reloaded. Linux maintains unlinked storage blocks until the holding process closes its descriptor.",
     limitations: [
       "Identified from the '(deleted)' symlink target in /proc/4123/fd/7",
-      "GhostDisk does not inspect file contents"
+      "GHOSTED does not inspect file contents"
     ],
-    recommendation: "Run 'sudo systemctl reload nginx' or send SIGHUP. GhostDisk never terminates processes automatically."
+    recommendation: "Run 'sudo systemctl reload nginx' or send SIGHUP. GHOSTED never terminates processes automatically."
   },
   {
     id: 1,
@@ -332,8 +332,8 @@ if (consentCheck && btnExecuteRecovery) {
 
     setTimeout(() => {
       btnExecuteRecovery.textContent = "Cleaned Successfully";
-      btnExecuteRecovery.style.background = "#10b981";
-      btnExecuteRecovery.style.color = "#0c1017";
+      btnExecuteRecovery.style.background = "var(--color-success)";
+      btnExecuteRecovery.style.color = "#0F1117";
       if (verificationCard) verificationCard.classList.remove('hidden');
 
       const reclaimSize = document.getElementById('cleanup-reclaimable-size');
@@ -513,7 +513,7 @@ const btnExport = document.getElementById('btn-export-json');
 if (btnExport) {
   btnExport.addEventListener('click', () => {
     const exportData = {
-      application: "GhostDisk",
+      application: "GHOSTED",
       version: "1.0.0",
       export_timestamp: new Date().toISOString(),
       findings: FINDINGS_DATA,
@@ -523,7 +523,7 @@ if (btnExport) {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `ghostdisk_report_${Date.now()}.json`);
+    downloadAnchor.setAttribute("download", `ghosted_report_${Date.now()}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();

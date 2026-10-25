@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GhostDisk — Storage & File Diagnostics</title>
+  <title>GHOSTED — Storage & File Diagnostics</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Ambient Spiderweb Background (Ghosted Full Frame) -->
+  <div class="spiderweb-full-bg" aria-hidden="true"></div>
+
   <div class="app-shell">
     <!-- Compact Left Sidebar -->
     <aside class="sidebar">
       <div class="brand">
-        <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
-          <path d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 005 0"/>
-        </svg>
-        <span class="brand-name">GhostDisk</span>
+        <img src="skull_logo.jpg" alt="GHOSTED Skull Logo" class="brand-skull-logo">
+        <span class="brand-name">GHOSTED</span>
       </div>
 
       <nav class="nav-menu">
@@ -352,7 +352,7 @@
               <h3>Safe Storage Cleanup</h3>
               <p class="cleanup-desc">
                 Reclaim storage from verified temporary test files and caches. 
-                GhostDisk strictly enforces an allowlist (<code class="mono-code">/tmp/ghostdisk_test/</code>) and will never modify personal documents or system files.
+                GHOSTED strictly enforces an allowlist (<code class="mono-code">/tmp/ghostdisk_test/</code>) and will never modify personal documents or system files.
               </p>
             </div>
             <div class="cleanup-reclaim-badge">
