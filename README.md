@@ -29,7 +29,32 @@ GhostDisk explains the discrepancy between filesystem-reported storage usage and
 
 ---
 
-## Controlled Tests Matrix
+## Quick Start: Live Diagnostics & Interactive Web UI
+
+You can run GhostDisk directly on your Linux machine or Ubuntu VM to inspect your actual disks, processes, and deleted-open file leaks:
+
+### 1. Build GhostDisk & CLI Tool
+```bash
+cmake -B build
+cmake --build build -j$(nproc)
+```
+
+### 2. Run Real-Time Storage Diagnostics
+Scan the root mount (`/`) and export live diagnostic telemetry:
+```bash
+sudo ./build/ghostdisk_cli / --export-web
+```
+*(Running with `sudo` is recommended so GhostDisk can inspect `/proc/<pid>/fd/*` descriptors across all system services without permission limitations).*
+
+### 3. Launch Interactive Dashboard in Browser
+```bash
+python3 -m http.server 8080 --directory web_ui
+```
+Open **`http://localhost:8080`** in your browser. The dashboard automatically detects `live_data.json` and renders your real Linux storage telemetry, capacity donut chart, active process leaks, 4-pillar evidence cards, and safe recovery zone.
+
+---
+
+### Controlled Tests Matrix
 
 | Test ID | Scenario | Module | Verified Behavior | Status |
 | :--- | :--- | :--- | :--- | :--- |
