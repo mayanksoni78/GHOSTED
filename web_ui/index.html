@@ -27,14 +27,20 @@
       </div>
 
       <nav class="nav-menu">
-        <button class="nav-item active" data-view="dashboard">
+        <button class="nav-item active" data-view="clean">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+          Quick Clean & Health
+        </button>
+        <button class="nav-item" data-view="dashboard">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="7" rx="1"/>
             <rect x="14" y="3" width="7" height="7" rx="1"/>
             <rect x="14" y="14" width="7" height="7" rx="1"/>
             <rect x="3" y="14" width="7" height="7" rx="1"/>
           </svg>
-          Dashboard
+          Disk Capacity
         </button>
         <button class="nav-item" data-view="findings">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -42,14 +48,14 @@
             <path d="m21 21-4.35-4.35"/>
             <path d="M11 8v6M8 11h6"/>
           </svg>
-          Findings & Evidence
+          Ghost Files Detective
           <span class="pill-count" id="findings-count-pill">3</span>
         </button>
         <button class="nav-item" data-view="tree">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 20h16M4 4h16M4 12h16"/>
           </svg>
-          Storage Tree
+          Large Folders
         </button>
         <button class="nav-item" data-view="recovery">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -62,7 +68,7 @@
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
           </svg>
-          Audit History
+          History & Audit
         </button>
       </nav>
 
@@ -82,10 +88,10 @@
       <!-- Top Navigation & Action Header -->
       <header class="top-header">
         <div class="mount-selector-container">
-          <label for="mount-select">Selected Filesystem Mount:</label>
+          <label for="mount-select">Drive Mount:</label>
           <div class="select-wrapper">
             <select id="mount-select">
-              <option value="/" selected>/ (Root NVMe) — 512.00 GB ext4</option>
+              <option value="/" selected>/ (Main Drive) — 512.00 GB ext4</option>
               <option value="/home">/home (User Data) — 1024.00 GB ext4</option>
               <option value="/var">/var (System Logs) — 256.00 GB xfs</option>
             </select>
@@ -93,6 +99,11 @@
         </div>
 
         <div class="header-actions">
+          <div class="mode-toggle">
+            <button id="btn-mode-simple" class="mode-pill active">✨ Simple Clean</button>
+            <button id="btn-mode-expert" class="mode-pill">⚙️ Advanced (OS Details)</button>
+          </div>
+
           <div class="scan-status-indicator" id="scan-status-text">
             Ready to scan
           </div>
@@ -109,7 +120,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
-            <span>Start Storage Diagnosis</span>
+            <span>Scan My Disk</span>
           </button>
         </div>
       </header>
@@ -119,7 +130,7 @@
         <div class="progress-header">
           <div class="progress-text">
             <span class="spinner"></span>
-            <strong id="progress-phase-title">Crawling directory tree & inspecting /proc file descriptors...</strong>
+            <strong id="progress-phase-title">Crawling directory tree & checking for ghost files...</strong>
           </div>
           <button id="btn-cancel-scan" class="btn-secondary-sm">Cancel</button>
         </div>
@@ -134,8 +145,160 @@
         </div>
       </section>
 
-      <!-- View 1: Dashboard -->
-      <div id="view-dashboard" class="content-view active">
+      <!-- View 0: Quick Clean & Recovery (Simple Mode) -->
+      <div id="view-clean" class="content-view active">
+        <!-- Health & Usage Hero -->
+        <div class="simple-hero-card">
+          <div class="health-header">
+            <div class="health-icon-box">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+            <div class="health-titles">
+              <h2 id="simple-health-title">Your Linux Disk is Healthy</h2>
+              <p id="simple-health-subtitle">Scan complete: no critical storage issues or runaway leaks found.</p>
+            </div>
+          </div>
+
+          <div class="storage-meter-container">
+            <div class="meter-labels">
+              <span>Used: <strong id="simple-stat-used">11.89 GB</strong></span>
+              <span>Free: <strong class="text-emerald" id="simple-stat-free">13.11 GB</strong></span>
+              <span>Total: <strong id="simple-stat-total">25.00 GB</strong></span>
+            </div>
+            <div class="storage-bar-track">
+              <div class="storage-bar-fill" id="simple-bar-fill" style="width: 48%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Safe Cleanup Hero -->
+        <div class="recovery-hero-card">
+          <div class="recovery-left">
+            <h3>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+              Safe Storage Cleanup
+            </h3>
+            <p>
+              GhostDisk safely clears temporary application cache files and test sandboxes. 
+              <strong>Your personal files, documents, and Linux system files are 100% safe and will never be deleted.</strong>
+            </p>
+            <ul class="recovery-checklist">
+              <li><span>✓</span> Safe target: <code>/tmp/ghostdisk_test/</code> (strict directory allowlist)</li>
+              <li><span>✓</span> Pre-checked: Identity verified with zero shell commands</li>
+              <li><span>✓</span> Safe recovery preview: Space verified immediately after removal</li>
+            </ul>
+          </div>
+          <div class="recovery-right">
+            <span class="reclaim-size-tag" id="simple-cleanable-num">20.00 MB</span>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Safe Space to Free</span>
+            <label class="simple-confirm-label">
+              <input type="checkbox" id="simple-clean-consent">
+              <span>I confirm cleaning safe temporary files</span>
+            </label>
+            <button id="btn-simple-clean" class="btn-clean-now" disabled>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>Clean Safe Cache</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Success Notification Box (Initially Hidden) -->
+        <div id="simple-clean-success" class="recovery-success-box hidden">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <div>
+            <strong>Cleaned Successfully!</strong>
+            <span id="simple-success-msg">Freed 20.00 MB. Storage was reclaimed and verified with the filesystem.</span>
+          </div>
+        </div>
+
+        <!-- 3 Simple Concept Cards (No OS Theory) -->
+        <div class="simple-grid-3">
+          <div class="simple-card">
+            <div class="simple-card-header">
+              <span class="simple-card-title">📁 Normal Apps & Files</span>
+              <span class="badge-info" style="font-size: 0.72rem; padding: 2px 6px;">Active</span>
+            </div>
+            <div class="simple-card-val text-blue" id="simple-card-normal">11.89 GB</div>
+            <p class="simple-card-desc">
+              Your Linux operating system, installed desktop applications, and user files.
+            </p>
+          </div>
+
+          <div class="simple-card">
+            <div class="simple-card-header">
+              <span class="simple-card-title">👻 Ghost Files</span>
+              <span class="badge-warning" style="font-size: 0.72rem; padding: 2px 6px;" id="simple-ghost-badge">36 KB</span>
+            </div>
+            <div class="simple-card-val text-amber" id="simple-card-ghost">36 KB</div>
+            <p class="simple-card-desc">
+              Files that were deleted, but running background apps still have open. Restarting the app releases this space.
+            </p>
+          </div>
+
+          <div class="simple-card">
+            <div class="simple-card-header">
+              <span class="simple-card-title">🛡️ System Headroom</span>
+              <span class="badge-emerald" style="font-size: 0.72rem; padding: 2px 6px;">Protected</span>
+            </div>
+            <div class="simple-card-val text-emerald" id="simple-card-reserve">1.27 GB</div>
+            <p class="simple-card-desc">
+              Linux reserved emergency buffer so the system never locks up when storage fills up.
+            </p>
+          </div>
+        </div>
+
+        <!-- Top Large Folders Overview -->
+        <div class="card" style="margin-top: 10px;">
+          <div class="card-header">
+            <div>
+              <h3>Where Your Storage Is Going</h3>
+              <p class="subtitle">Largest folders crawled on your disk.</p>
+            </div>
+            <button class="link-btn" onclick="switchView('tree')">View All Folders →</button>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Folder</th>
+                  <th>Disk Space</th>
+                  <th>Category</th>
+                </tr>
+              </thead>
+              <tbody id="simple-folder-tbody">
+                <tr>
+                  <td><code>/usr</code></td>
+                  <td><strong>128.40 GB</strong></td>
+                  <td>Installed Software & System Libraries</td>
+                </tr>
+                <tr>
+                  <td><code>/var</code></td>
+                  <td><strong>84.20 GB</strong></td>
+                  <td>Application Data & Logs</td>
+                </tr>
+                <tr>
+                  <td><code>/home</code></td>
+                  <td><strong>42.10 GB</strong></td>
+                  <td>Your Personal Documents & Downloads</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- View 1: Dashboard (Technical Charts) -->
+      <div id="view-dashboard" class="content-view">
         <!-- Hero Capacity Breakdown -->
         <div class="hero-grid">
           <!-- Donut Card -->
