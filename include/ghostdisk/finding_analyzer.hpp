@@ -2,7 +2,22 @@
 
 #include "ghostdisk/analysis_types.hpp"
 #include <cstdint>
+#include <vector>
+#include <string>
+
+#if __has_include(<optional>)
 #include <optional>
+namespace ghostdisk {
+    using std::optional;
+    using std::nullopt;
+}
+#elif __has_include(<experimental/optional>)
+#include <experimental/optional>
+namespace ghostdisk {
+    using std::experimental::optional;
+    using std::experimental::nullopt;
+}
+#endif
 
 namespace ghostdisk {
 
@@ -24,7 +39,7 @@ public:
         const ScanOptions& scan_options,
         const ProcScanResult& proc,
         const AnalyzerConfig& config = AnalyzerConfig{},
-        std::optional<uint64_t> mount_device_id = std::nullopt
+        optional<uint64_t> mount_device_id = nullopt
     );
 
     /**

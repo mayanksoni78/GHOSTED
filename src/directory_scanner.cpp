@@ -31,7 +31,7 @@ EntryType determine_entry_type(const struct stat& st) {
     return EntryType::Other;
 }
 #elif defined(_WIN32)
-EntryType determine_entry_type(const struct _stat64& st) {
+EntryType determine_entry_type(const struct _stati64& st) {
     if (st.st_mode & _S_IFREG) return EntryType::File;
     if (st.st_mode & _S_IFDIR) return EntryType::Directory;
     return EntryType::Other;
@@ -91,8 +91,8 @@ DirectoryScanResult DirectoryScanner::scan(
     }
     root_device_id = static_cast<uint64_t>(root_st.st_dev);
 #elif defined(_WIN32)
-    struct _stat64 root_st;
-    if (_stat64(root_path.c_str(), &root_st) != 0) {
+    struct _stati64 root_st;
+    if (_stati64(root_path.c_str(), &root_st) != 0) {
         result.error_message = "Cannot inspect root path: " + root_path;
         SkippedPath skipped;
         skipped.path = root_path;

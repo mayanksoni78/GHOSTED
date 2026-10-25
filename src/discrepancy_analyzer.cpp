@@ -95,7 +95,7 @@ DiscrepancyReport DiscrepancyAnalyzer::analyze(
 
     // ---- 2. Keep only deleted-open files that live on THIS filesystem -------------
     uint64_t dev = 0;
-    if (mount_device_id.has_value()) {
+    if (bool(mount_device_id)) {
         dev = *mount_device_id;
         r.device_filter_applied = true;
     } else if (lookup_device_id(fs.mount_point, dev)) {
