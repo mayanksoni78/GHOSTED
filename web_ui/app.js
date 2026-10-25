@@ -572,7 +572,6 @@ function loadLiveData(data) {
   if (recUnres) recUnres.textContent = formatBytes(unresolved);
 
   // Update 4 Metric Cards
-  const totalCap = data.total_bytes || 0;
   const cardCap = document.getElementById('metric-total-capacity');
   if (cardCap) cardCap.textContent = formatBytes(totalCap);
 
