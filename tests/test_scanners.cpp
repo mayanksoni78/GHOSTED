@@ -81,8 +81,17 @@ void test_directory_scanner() {
 
     size_t callback_invocations = 0;
     auto progress_cb = [&callback_invocations](const ghostdisk::ScanProgress& prog) {
+        (void)prog;
         callback_invocations++;
     };
+
+#if !defined(_WIN32)
+    // T4: Create directory symlinks and circular loop symlink to verify non-recursive safety
+    std::string symlink_subdir = sandbox + "/link_to_subdir";
+    std::string symlink_loop = sandbox + "/link_loop_parent";
+    ::symlink(sub_dir.c_str(), symlink_subdir.c_str());
+    ::symlink(sandbox.c_str(), symlink_loop.c_str());
+#endif
 
     auto result = scanner.scan(sandbox, options, nullptr, progress_cb);
 
@@ -92,6 +101,21 @@ void test_directory_scanner() {
     assert(result.dirs_count >= 1 && "Should find at least 1 subdirectory");
     assert(result.total_apparent_bytes >= 1024 * 1024 && "Apparent bytes should account for >= 1 MB file");
     assert(result.total_allocated_bytes > 0 && "Allocated bytes should be > 0");
+
+#if !defined(_WIN32)
+    // T4: Verify symlinks were identified and not traversed recursively
+    bool found_symlink = false;
+    for (const auto& entry : result.entries) {
+        if (entry.entry_type == ghostdisk::EntryType::Symlink) {
+            found_symlink = true;
+            break;
+        }
+    }
+    assert(found_symlink && "T4: Symlink must be recorded as EntryType::Symlink without looping");
+    std::cout << "  [PASS] T4 Symlink safety verified (no infinite loop on directory symlinks)." << std::endl;
+    ::unlink(symlink_loop.c_str());
+    ::unlink(symlink_subdir.c_str());
+#endif
 
     std::cout << "  Scanned files: " << result.files_count << ", dirs: " << result.dirs_count << std::endl;
     std::cout << "  Total Apparent size: " << ghostdisk::FsScanner::format_bytes(result.total_apparent_bytes) << std::endl;
@@ -117,6 +141,44 @@ void test_directory_scanner() {
     std::cout << "  [PASS] DirectoryScanner passed all checks!\n" << std::endl;
 }
 
+void test_permission_denied_skipped_paths() {
+    std::cout << "[TEST] Running T3: Permission / skipped path handling..." << std::endl;
+    const char* t3_env = std::getenv("GHOSTDISK_TEST_T3_DIR");
+    std::string test_dir;
+    bool created_locally = false;
+    if (t3_env && *t3_env != '\0') {
+        test_dir = t3_env;
+    } else {
+#if !defined(_WIN32)
+        test_dir = "/tmp/ghostdisk_test_t3";
+        mkdir_compat(test_dir.c_str());
+        std::string unreadable = test_dir + "/unreadable_sub";
+        mkdir_compat(unreadable.c_str());
+        ::chmod(unreadable.c_str(), 0000);
+        created_locally = true;
+#endif
+    }
+
+    if (!test_dir.empty()) {
+        ghostdisk::DirectoryScanner scanner;
+        ghostdisk::ScanOptions options;
+        auto result = scanner.scan(test_dir, options);
+        assert(result.success && "Scan should succeed even when subdirectories are unreadable");
+        assert(!result.skipped_entries.empty() && "Should record at least one skipped path");
+        std::cout << "  Recorded " << result.skipped_entries.size() << " skipped path(s) successfully." << std::endl;
+        std::cout << "  Skipped reason: " << result.skipped_entries[0].reason << std::endl;
+
+#if !defined(_WIN32)
+        if (created_locally) {
+            ::chmod((test_dir + "/unreadable_sub").c_str(), 0755);
+            rmdir_compat((test_dir + "/unreadable_sub").c_str());
+            rmdir_compat(test_dir.c_str());
+        }
+#endif
+    }
+    std::cout << "  [PASS] T3 Permission / skipped paths verified successfully.\n" << std::endl;
+}
+
 int main() {
     std::cout << "========================================" << std::endl;
     std::cout << "  GHOSTDISK - Member 1 Test Suite" << std::endl;
@@ -125,6 +187,7 @@ int main() {
 
     test_fs_scanner();
     test_directory_scanner();
+    test_permission_denied_skipped_paths();
 
     std::cout << "ALL TESTS PASSED SUCCESSFULLY!" << std::endl;
     return 0;

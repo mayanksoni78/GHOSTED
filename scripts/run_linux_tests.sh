@@ -24,7 +24,7 @@ touch "$DISPOSABLE_DIR/unreadable_dir/secret.txt"
 chmod 000 "$DISPOSABLE_DIR/unreadable_dir"
 
 # Verify scanner reports skipped path
-./test_scanners
+GHOSTDISK_TEST_T3_DIR="$DISPOSABLE_DIR" ./test_scanners
 
 # Cleanup
 chmod 755 "$DISPOSABLE_DIR/unreadable_dir"

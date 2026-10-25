@@ -4,161 +4,187 @@
 
 ---
 
+## Executive Summary & Principles
+
+GhostDisk explains the discrepancy between filesystem-reported storage usage and apparent directory tree totals. It combines Linux filesystem capacity telemetry, directory metadata analysis, deleted-but-open file discovery via `/proc`, signed discrepancy analysis, safe allowlisted cleanup, post-action capacity verification, a local audit database, and a Qt desktop interface.
+
+### Safety Boundaries & Non-Goals
+* **Read-only by default**: Scans and recovery preview generation never mutate data or processes.
+* **Never label unexplained space as junk**: Unresolved discrepancies are treated strictly as investigation targets (unscanned subtrees, metadata, snapshots, journal overhead).
+* **Zero shell interpolation**: Cleanup occurs exclusively via direct POSIX `unlink()`, never `system('rm ...')` or shell scripts.
+* **No automatic process killing**: Processes holding deleted files are identified with operator restart/reload guidance, never terminated automatically.
+* **Strict allowlist & TOCTOU defense**: Recovery is strictly confined to approved cache directories (`~/.cache/ghostdisk_test/`, `/tmp/ghostdisk_test/`), requires explicit operator confirmation, and re-validates file identity (device, inode, size, mtime, non-symlink) immediately before unlink.
+
+---
+
 ## Team Division & Roles
 
 | Member | Role | Key Modules | Status |
 | :--- | :--- | :--- | :--- |
-| **Member 1** | **OS Telemetry & Directory Crawler Engineer** | `FsScanner`, `DirectoryScanner`, `types.hpp` | Completed |
-| **Member 2** | **Linux Process & `/proc` Detective Engineer** | `ProcInspector`, Open-FD detection, T2/T9 | Completed |
-| **Member 3** | **Discrepancy & Finding Analysis Engine** | `DiscrepancyAnalyzer`, `FindingAnalyzer`, `analysis_types.hpp` | Completed |
-| **Member 4** | **Safe Recovery Coordinator & Verification Service** | `RecoveryCoordinator`, `VerificationService` | Completed |
-| Member 5 | UI, Persistence & Architecture Lead | `MainWindow` (Qt Widgets), `SQLiteRepository` | Planned |
-
----
-
-## Member 1 Deliverables
-
-### 1. `FsScanner` (`include/ghostdisk/fs_scanner.hpp`, `src/fs_scanner.cpp`)
-- Reads filesystem capacity via Linux `statvfs()`:
-  - `total_bytes = f_blocks * f_frsize`
-  - `raw_free_bytes = f_bfree * f_frsize`
-  - `available_bytes = f_bavail * f_frsize` (unprivileged user space)
-  - `used_bytes = total_bytes - raw_free_bytes`
-  - `reserved_or_unavailable_bytes = raw_free_bytes - available_bytes`
-- Discovers mounted filesystems dynamically by parsing `/proc/mounts` and filtering pseudo-filesystems (`proc`, `sysfs`, `cgroup`, etc.).
-- Formats bytes into human-readable notation (`B`, `KB`, `MB`, `GB`, `TB`).
-
-### 2. `DirectoryScanner` (`include/ghostdisk/directory_scanner.hpp`, `src/directory_scanner.cpp`)
-- **Symlink Safety**: Traverses directory subtrees using `lstat()` to ensure symlinks are never followed recursively into directory loops.
-- **Size Distinction**:
-  - `apparent_bytes` (`st_size`)
-  - `allocated_bytes` (`st_blocks * 512`)
-- **Mount Boundary Detection**: Checks `st_dev` against the scan root and stops when `cross_device_boundaries == false`.
-- **Skipped Path Tracking**: Records unreadable or permission-denied directories without crashing.
-- **Asynchronous Ready**: Supports cooperative cancellation tokens (`std::atomic<bool>`) and periodic progress callbacks (`ScanProgress`).
-
----
-
-## Member 2 Deliverables
-
-### 1. `ProcInspector` (`include/ghostdisk/proc_inspector.hpp`, `src/proc_inspector.cpp`)
-- **Process Enumeration**: Traverses `/proc` accepting only valid numeric PID directories.
-- **FD Inspection**: Examines `/proc/<pid>/fd/` descriptors and uses `readlink()` to identify targets ending in the exact suffix `' (deleted)'`.
-- **Metadata Extraction**: Opens `/proc/<pid>/fd/<fd>` and runs `fstat()` (with `stat()` link fallback) to collect `st_dev`, `st_ino`, `st_size`, and `st_blocks * 512`.
-- **Inode Deduplication**: Deduplicates findings by `(device_id, inode)` pairs so multiple processes/FDs holding the same unlinked file count its allocated storage only once.
-- **Race & Permission Resilience**: Non-fatally handles `ENOENT`/`ESRCH` process races and logs permission-denied processes in `restricted_pids` without crashing.
-- **Process & User Resolution**: Extracts process names from `/proc/<pid>/comm` and resolves usernames from UID lines in `/proc/<pid>/status`.
-
-### 2. Controlled Test Workload T2 (`scripts/workload_t2_deleted_open.py`)
-- Python test workload creating a 10 MB temporary file, opening a file descriptor, unlinking it from the filesystem, and outputting JSON metadata for automated test verification.
-
----
-
-## Member 3 Deliverables
-
-### 1. `DiscrepancyAnalyzer` (`include/ghostdisk/discrepancy_analyzer.hpp`, `src/discrepancy_analyzer.cpp`)
-- **Scope Classification & Boundary Verification**:
-  - Distinguishes scan coverage: `WholeMount`, `PartOfMount`, `OutsideMount`, and `Unknown`.
-  - Normalizes root paths and guards against prefix collision traps (e.g., `/home` vs `/homework`).
-  - Sets `comparable = false` when scope is partial, when cross-device boundaries are enabled, or when scans are cancelled.
-- **Signed Discrepancy Arithmetic**:
-  - Computes `gap_bytes = (int64_t)fs_used_bytes - (int64_t)scan_allocated_bytes`.
-  - Distinguishes negative gaps (`ScanExceedsFilesystem`) triggered by concurrent writes, hard links, or sparse/uncommitted blocks.
-- **Device-Scoped Evidence Attribution**:
-  - Filters deleted-open findings strictly by device ID (`st_dev`) so unlinked files on different filesystems do not skew calculations.
-  - Formulates attribution: `explained_bytes = min(max(gap, 0), deleted_open_bytes)`.
-  - Formulates remainder: `unresolved_bytes = max(gap, 0) - explained_bytes`.
-- **Noise Tolerance & Accounting Caveats**:
-  - Applies configurable noise floor (`tolerance_bytes`, `tolerance_fraction`) to ignore normal filesystem metadata/journal fluctuations.
-  - Keeps superuser reserve (`reserved_or_unavailable_bytes`) isolated from user-space discrepancy gaps.
-  - Captures coverage limitations (skipped directories, restricted PIDs) as explicit caveats.
-
-### 2. `FindingAnalyzer` (`include/ghostdisk/finding_analyzer.hpp`, `src/finding_analyzer.cpp`, `analysis_types.hpp`)
-- **Four-Pillar Finding Architecture**:
-  - `confirmed_facts`: Strictly direct measurements (exact byte counts, PIDs, file descriptors, inodes).
-  - `likely_explanation`: Plausible OS-level interpretation, clearly designated as an interpretation.
-  - `limitations`: Inaccessible paths, uninspected processes, scan races, and mount scope boundaries.
-  - `recommended_next_step`: Safe, non-destructive operator guidance (e.g. reload or restart daemon); never instructs automated deletion.
-- **Strict Safety Invariant**: Never classifies unexplained space as "junk" or "safe to delete". Unresolved gaps remain flagged as investigation targets.
-- **Risk & Severity Classification**:
-  - Assigns severity (`Info`, `Warning`, `Critical`) based on byte scale and remaining filesystem headroom (escalates to `Critical` if user-available space < 10%).
-  - Assigns `RiskLevel` (`Low`, `Medium`, `High`) ensuring user-actionable clarity.
-- **JSON Evidence Serialization**:
-  - Built-in `json_escape` utility producing RFC 8259-compliant JSON snippets (`evidence_json`) ready for Member 5 SQLite persistence.
-
----
-
-## Member 4 Deliverables
-
-### 1. `RecoveryCoordinator` (`include/ghostdisk/recovery_coordinator.hpp`, `src/recovery_coordinator.cpp`)
-- **Two-Stage Safe Recovery Workflow**:
-  - **Stage 1 (Read-Only Preview)**: Inspects target via `lstat()`, verifies allowlist eligibility, captures device/inode/mtime/size, estimates reclaimable bytes, and returns `RecoveryPreview` without modifying data.
-  - **Stage 2 (Confirmed Execution)**: Requires explicit `user_confirmed == true`. Rejects directories, symlinks, and paths outside allowlisted roots.
-- **Strict Allowlist Enforcement**:
-  - Resolves canonical paths to prevent directory traversal (`..`) or symlink redirects escaping approved roots (`~/.cache/ghostdisk_test/`, `/tmp/ghostdisk_test/`).
-- **TOCTOU Defense (Time-Of-Check to Time-Of-Use)**:
-  - Immediately before unlinking, re-validates identity: device ID (`st_dev`), inode (`st_ino`), size (`st_size`), modification timestamp (`st_mtime`), and non-symlink status. Aborts immediately if the file was modified, swapped, or replaced.
-- **Zero Shell Invocation**:
-  - Executes deletions strictly via the direct POSIX `unlink()` system call. Never invokes `system('rm ...')` or shell interpreters.
-- **No Automatic Process Killing**:
-  - Protects running processes; active open-file locks are provided with operator restart instructions rather than process termination signals.
-
-### 2. `VerificationService` (`include/ghostdisk/verification_service.hpp`, `src/verification_service.cpp`)
-- **Dynamic Mount Point Resolution**:
-  - Resolves the filesystem volume hosting any target path by matching against active mounts.
-- **Before-and-After Telemetry**:
-  - Samples available space (`available_bytes`) immediately prior to and directly following the unlink operation.
-- **Honest Observed Delta Accounting**:
-  - Computes `observed_delta_bytes = available_bytes_after - available_bytes_before`.
-  - Explains discrepancies in the audit log when observed space change differs from estimated file size (due to concurrent writes, delayed allocation, or other held descriptors).
+| **Member 1** | **OS Telemetry & Directory Crawler Engineer** | `FsScanner`, `DirectoryScanner`, `types.hpp` | **Completed & Verified** |
+| **Member 2** | **Linux Process & `/proc` Detective Engineer** | `ProcInspector`, Open-FD detection, T2/T9 | **Completed & Verified** |
+| **Member 3** | **Discrepancy & Finding Analysis Engine** | `DiscrepancyAnalyzer`, `FindingAnalyzer`, `analysis_types.hpp` | **Completed & Verified** |
+| **Member 4** | **Safe Recovery Coordinator & Verification Service** | `RecoveryCoordinator`, `VerificationService` | **Completed & Verified** |
+| Member 5 | UI, Persistence & Architecture Lead | `MainWindow` (Qt Widgets), `SQLiteRepository` | Planned (Phase 5) |
 
 ---
 
 ## Controlled Tests Matrix
 
-| Test ID | Scenario | Module | Verified Behavior |
-| :--- | :--- | :--- | :--- |
-| **T1** | Large file size accounting | `DirectoryScanner` | Reports apparent size vs allocated disk blocks. |
-| **T2** | Controlled deleted-open file | `ProcInspector` + Workload | Detects unlinked 10 MB file with PID and deduplicated bytes. |
-| **T3** | Inaccessible directory handling | `DirectoryScanner` | Gracefully skips `000` permission subtrees into `skipped_entries`. |
-| **T4** | Symlink safety & non-traversal | `DirectoryScanner` | Symlinks marked as `EntryType::Symlink` and not followed into loops. |
-| **T6** | Allowlisted cache cleanup & verification | `RecoveryCoordinator`, `VerificationService` | Creates 20 MB file in allowlist, generates preview, unlinks with confirmation, and verifies observed capacity delta. |
-| **T7** | TOCTOU race condition abort | `RecoveryCoordinator` | Aborts safely when target is modified, deleted, or swapped between preview and execution. |
-| **T8** | Scope, Discrepancy & Finding verification | `DiscrepancyAnalyzer`, `FindingAnalyzer` | Validates signed math, attribution deduplication, tolerance, and caveats across 17 scenarios. |
-| **T9** | Unprivileged process inspection | `ProcInspector` | Permission-denied PIDs cleanly logged into `restricted_pids`. |
+| Test ID | Scenario | Module | Verified Behavior | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **T1** | Large file size accounting | `DirectoryScanner` | Reports apparent size (`st_size`) vs allocated disk blocks (`st_blocks * 512`). | **PASS** |
+| **T2** | Controlled deleted-open file | `ProcInspector` + Python Workload | Detects unlinked 10 MB file with PID and deduplicated bytes. | **PASS** |
+| **T3** | Inaccessible directory handling | `DirectoryScanner` | Gracefully skips `000` permission subtrees into `skipped_entries`. | **PASS** |
+| **T4** | Symlink safety & non-traversal | `DirectoryScanner` | Symlinks marked as `EntryType::Symlink` and not followed into loops. | **PASS** |
+| **T6** | Allowlisted cache cleanup & verification | `RecoveryCoordinator`, `VerificationService` | Creates 20 MB file in allowlist, generates preview, unlinks with confirmation, and verifies observed capacity delta. | **PASS** |
+| **T7** | TOCTOU race condition abort | `RecoveryCoordinator` | Aborts safely when target is modified, deleted, or swapped between preview and execution. | **PASS** |
+| **T8** | Scope, Discrepancy & Finding verification | `DiscrepancyAnalyzer`, `FindingAnalyzer` | Validates signed math, attribution deduplication, tolerance, and caveats across 18 scenarios (including transient growth). | **PASS** |
+| **T9** | Unprivileged process inspection | `ProcInspector` | Permission-denied PIDs cleanly logged into `restricted_pids` without crashes. | **PASS** |
 
 ---
 
-## Build & Test Instructions
+## How to Run
 
-### Linux (Ubuntu 20.04/22.04+)
+### Prerequisites
+On Linux (Ubuntu 20.04/22.04/24.04) or Windows WSL2:
 ```bash
-# Using CMake and CTest (Runs all tests T1 through T9)
-mkdir build && cd build
-cmake ..
-cmake --build .
-ctest --output-on-failure
+sudo apt update && sudo apt install -y build-essential cmake python3
+```
 
-# Or using the automated test suite runner
+---
+
+### 1. Automated Full Test Suite Runner (Recommended)
+Run the all-in-one test runner script covering unit tests, CTest, controlled workloads (T2, T3), and safe recovery (T6, T7):
+
+```bash
 chmod +x scripts/run_linux_tests.sh
 ./scripts/run_linux_tests.sh
 ```
 
-### Direct Compilation with g++
+*(From Windows PowerShell via WSL:)*
+```powershell
+wsl -e bash -c "cd /mnt/c/Project/GHOSTED && ./scripts/run_linux_tests.sh"
+```
+
+---
+
+### 2. Standard CMake & CTest Workflow
 ```bash
-# Member 1 Tests (Scanners)
+# Configure and build
+mkdir -p build && cd build
+cmake ..
+cmake --build .
+
+# Run all automated tests via CTest
+ctest --output-on-failure
+```
+
+---
+
+### 3. Running Individual Test Executables
+
+After building with CMake (inside the `build/` directory):
+
+```bash
+# Member 1 Tests: Filesystem Telemetry & Directory Crawler (T1, T3, T4, Cancellation)
+./test_scanners
+
+# Member 2 Tests: Process & Inode Inspector (Deduplication, Mock /proc, T9 Unprivileged Scan)
+./test_proc_inspector
+
+# Member 3 Tests: Discrepancy & Finding Analyzer (Scope, Signed Math, Caveats, T8 Bursty Activity)
+./test_analyzer
+
+# Member 4 Tests: Safe Recovery Coordinator & Verification Service (Allowlist, TOCTOU Abort T7, T6 Cleanup)
+./test_recovery
+```
+
+---
+
+### 4. Running the Live Controlled Workload T2 (Deleted-Open File)
+To run the automated T2 test against a live background Python workload:
+
+```bash
+# In the repository root:
+python3 scripts/workload_t2_deleted_open.py &
+WORKLOAD_PID=$!
+
+# Run ProcInspector against the workload PID:
+GHOSTDISK_TEST_T2_PID="$WORKLOAD_PID" ./build/test_proc_inspector
+
+# Stop the workload after testing:
+kill -TERM "$WORKLOAD_PID" 2>/dev/null || true
+```
+
+---
+
+### 5. Direct Compilation with `g++` (Without CMake)
+
+If you prefer compiling directly using `g++ -std=c++17`:
+
+```bash
+# 1. Member 1: Scanners Test
 g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp tests/test_scanners.cpp -o test_scanners
 ./test_scanners
 
-# Member 2 Tests (Proc Inspector)
+# 2. Member 2: Proc Inspector Test
 g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp src/proc_inspector.cpp tests/test_proc_inspector.cpp -o test_proc_inspector
 ./test_proc_inspector
 
-# Member 3 Tests (Discrepancy & Finding Analyzer)
+# 3. Member 3: Discrepancy & Finding Analyzer Test
 g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp src/proc_inspector.cpp src/discrepancy_analyzer.cpp src/finding_analyzer.cpp tests/test_analyzer.cpp -o test_analyzer
 ./test_analyzer
 
-# Member 4 Tests (Recovery Coordinator & Verification Service)
+# 4. Member 4: Recovery Coordinator & Verification Service Test
 g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp src/proc_inspector.cpp src/discrepancy_analyzer.cpp src/finding_analyzer.cpp src/verification_service.cpp src/recovery_coordinator.cpp tests/test_recovery.cpp -o test_recovery
 ./test_recovery
 ```
+
+---
+
+## Module Deliverables Overview
+
+### Member 1 — Telemetry & Directory Crawler
+* **`FsScanner`** (`include/ghostdisk/fs_scanner.hpp`, `src/fs_scanner.cpp`):
+  * Reads `statvfs()` capacity metrics: total, used, raw-free, user-available, and reserved/unavailable bytes.
+  * Discovers mounted filesystems dynamically from `/proc/mounts`, filtering pseudo-filesystems (`proc`, `sysfs`, `cgroup`).
+  * Byte notation formatting (`B`, `KB`, `MB`, `GB`, `TB`).
+* **`DirectoryScanner`** (`include/ghostdisk/directory_scanner.hpp`, `src/directory_scanner.cpp`):
+  * Traverses directories with `lstat()`, avoiding recursive symlink loops.
+  * Tracks both apparent size (`st_size`) and physical allocated size (`st_blocks * 512`).
+  * Enforces device boundaries via `st_dev`.
+  * Records unreadable paths non-fatally into `skipped_entries`.
+  * Cancellation (`std::atomic<bool>`) and progress callbacks (`ScanProgress`).
+
+### Member 2 — Process & Inode Detective
+* **`ProcInspector`** (`include/ghostdisk/proc_inspector.hpp`, `src/proc_inspector.cpp`):
+  * Scans numeric PIDs in `/proc`.
+  * Inspects `/proc/<pid>/fd/` descriptors via `readlink()` looking for `' (deleted)'`.
+  * Inspects descriptor metadata (`st_dev`, `st_ino`, `st_size`, `st_blocks * 512`).
+  * Deduplicates findings by `(device_id, inode)` pairs to prevent double-counting storage across multiple references.
+  * Captures permission-restricted PIDs gracefully into `restricted_pids`.
+* **Controlled Workload T2** (`scripts/workload_t2_deleted_open.py`):
+  * Creates a 10 MB temporary file, holds an open descriptor, unlinks it, outputs metadata as JSON, and sleeps for verification.
+
+### Member 3 — Discrepancy & Finding Analysis
+* **`DiscrepancyAnalyzer`** (`include/ghostdisk/discrepancy_analyzer.hpp`, `src/discrepancy_analyzer.cpp`):
+  * Scope classification (`WholeMount`, `PartOfMount`, `OutsideMount`, `Unknown`).
+  * Signed arithmetic: `gap = fs_used - scan_allocated`.
+  * Filters deleted-open findings to the target device ID and bounds explained storage.
+  * Applies configurable noise floor (`tolerance_bytes`, `tolerance_fraction`).
+* **`FindingAnalyzer`** (`include/ghostdisk/finding_analyzer.hpp`, `src/finding_analyzer.cpp`, `analysis_types.hpp`):
+  * Four-pillar finding structure: `confirmed_facts`, `likely_explanation`, `limitations`, `recommended_next_step`.
+  * Golden safety invariant: Unresolved space is never labeled as "junk" or "safe to delete".
+  * Assigns severity (`Info`, `Warning`, `Critical`) and `RiskLevel` (`Low`, `Medium`, `High`).
+  * RFC 8259-compliant JSON serialization (`evidence_json`) ready for persistence.
+
+### Member 4 — Safe Recovery & Verification
+* **`RecoveryCoordinator`** (`include/ghostdisk/recovery_coordinator.hpp`, `src/recovery_coordinator.cpp`):
+  * Stage 1 preview: Read-only `lstat()`, canonical path allowlist validation (`~/.cache/ghostdisk_test/`, `/tmp/ghostdisk_test/`), estimate reclaimable bytes.
+  * Stage 2 execution: Requires explicit `user_confirmed == true`.
+  * Revalidates device, inode, size, mtime, and non-symlink status immediately before unlink (TOCTOU defense).
+  * Direct POSIX `unlink()`, zero shell invocation.
+* **`VerificationService`** (`include/ghostdisk/verification_service.hpp`, `src/verification_service.cpp`):
+  * Samples capacity before and after recovery actions.
+  * Measures observed delta (`available_after - available_before`) and logs an honest audit trail.

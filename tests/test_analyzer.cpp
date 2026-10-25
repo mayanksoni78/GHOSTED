@@ -346,6 +346,21 @@ void test_reserved_not_in_gap() {
     cout << "  [PASS]" << endl;
 }
 
+void test_t8_bursty_growth_not_misclassified() {
+    cout << "[TEST] T8: Transient / bursty activity is not mislabeled as permanent leak..." << endl;
+    // Transient activity: filesystem used increased by 2 GiB during build, but no deleted-open files found
+    auto res = run(make_fs(10 * GiB), make_scan(8 * GiB), make_proc({}));
+    CHECK(res.report.unresolved_bytes == 2 * GiB);
+    const Finding* u = find_type(res.findings, FindingType::UnresolvedDiscrepancy);
+    CHECK(u != nullptr);
+    // Golden safety rule: must NEVER be classified as junk or safe-to-delete
+    CHECK(u->risk == RiskLevel::High); // Unsupported for automatic cleanup
+    CHECK(u->confidence == Confidence::Low);
+    CHECK(u->recommended_next_step.find("not something to delete") != string::npos);
+    CHECK(u->likely_explanation.find("data changing while the scan ran") != string::npos);
+    cout << "  [PASS]" << endl;
+}
+
 } // namespace
 
 int main() {
@@ -370,6 +385,7 @@ int main() {
     test_low_space_bumps_severity();
     test_json_escape_and_evidence();
     test_reserved_not_in_gap();
+    test_t8_bursty_growth_not_misclassified();
 
     cout << "\nALL ANALYZER TESTS PASSED SUCCESSFULLY!" << endl;
     return 0;
