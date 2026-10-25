@@ -3,509 +3,327 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GhostDisk — Evidence-Based Linux Storage Diagnostics & Safe Recovery</title>
+  <title>GhostDisk — Storage & File Diagnostics</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app-layout">
-    <!-- Sidebar -->
+  <div class="app-shell">
+    <!-- Compact Left Sidebar -->
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
-            <path d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 005 0"/>
-          </svg>
-        </div>
-        <div class="brand-text">
-          <h2>GhostDisk</h2>
-          <span class="badge-version">v1.0 Linux</span>
-        </div>
+        <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
+          <path d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 005 0"/>
+        </svg>
+        <span class="brand-name">GhostDisk</span>
       </div>
 
       <nav class="nav-menu">
-        <button class="nav-item active" data-view="clean">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-          </svg>
-          Quick Clean & Health
-        </button>
-        <button class="nav-item" data-view="dashboard">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="nav-link active" data-view="overview">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="7" rx="1"/>
             <rect x="14" y="3" width="7" height="7" rx="1"/>
             <rect x="14" y="14" width="7" height="7" rx="1"/>
             <rect x="3" y="14" width="7" height="7" rx="1"/>
           </svg>
-          Disk Capacity
+          Overview
         </button>
-        <button class="nav-item" data-view="findings">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <button class="nav-link" data-view="analysis">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 21H3V3"/>
+            <path d="m19 9-5 5-4-4-3 3"/>
+          </svg>
+          Storage Analysis
+        </button>
+
+        <button class="nav-link" data-view="deleted-files">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/>
             <path d="m21 21-4.35-4.35"/>
             <path d="M11 8v6M8 11h6"/>
           </svg>
-          Ghost Files Detective
-          <span class="pill-count" id="findings-count-pill">3</span>
+          Deleted-Open Files
+          <span class="nav-badge" id="findings-count-pill">3</span>
         </button>
-        <button class="nav-item" data-view="tree">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 20h16M4 4h16M4 12h16"/>
+
+        <button class="nav-link" data-view="folders">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
           Large Folders
         </button>
-        <button class="nav-item" data-view="recovery">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <button class="nav-link" data-view="cleanup">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
-          Safe Recovery Zone
+          Safe Cleanup
         </button>
-        <button class="nav-item" data-view="audit">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <button class="nav-link" data-view="history">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
           </svg>
-          History & Audit
+          History
         </button>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="system-status">
-          <span class="status-dot online"></span>
-          <div class="status-info">
-            <span class="status-title">Core Engine Active</span>
-            <span class="status-subtitle">Read-Only Mode Enforced</span>
-          </div>
-        </div>
+        <span class="sidebar-status-dot"></span>
+        <span class="sidebar-status-text">Read-Only Mode</span>
       </div>
     </aside>
 
     <!-- Main Content Area -->
-    <main class="main-content">
-      <!-- Top Navigation & Action Header -->
-      <header class="top-header">
-        <div class="mount-selector-container">
-          <label for="mount-select">Drive Mount:</label>
-          <div class="select-wrapper">
+    <main class="main-body">
+      <!-- Simplified Dashboard Header -->
+      <header class="header-bar">
+        <div class="header-left">
+          <span class="header-label">Disk:</span>
+          <div class="mount-select-wrap">
             <select id="mount-select">
-              <option value="/" selected>/ (Main Drive) — 512.00 GB ext4</option>
+              <option value="/" selected>/ (Root NVMe) — 512.00 GB ext4</option>
               <option value="/home">/home (User Data) — 1024.00 GB ext4</option>
               <option value="/var">/var (System Logs) — 256.00 GB xfs</option>
             </select>
           </div>
         </div>
 
-        <div class="header-actions">
-          <div class="mode-toggle">
-            <button id="btn-mode-simple" class="mode-pill active">✨ Simple Clean</button>
-            <button id="btn-mode-expert" class="mode-pill">⚙️ Advanced (OS Details)</button>
-          </div>
+        <div class="header-right">
+          <span class="scan-status-text" id="scan-status-text">Ready to scan</span>
 
-          <div class="scan-status-indicator" id="scan-status-text">
-            Ready to scan
-          </div>
-          <label class="btn-secondary" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 0.85rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 500; color: var(--text-primary); transition: all var(--transition-fast);">
+          <!-- Subtle secondary import button -->
+          <label class="btn-subtle" title="Import live JSON report">
             <input type="file" id="input-load-json" accept=".json" style="display: none;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="17 8 12 3 7 8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <span>Import Live Scan JSON</span>
+            <span>Import JSON</span>
           </label>
+
           <button id="btn-start-scan" class="btn-primary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
-            <span>Scan My Disk</span>
+            <span>Scan Disk</span>
           </button>
         </div>
       </header>
 
-      <!-- Dynamic Progress Banner (Shown during scan) -->
-      <section id="scan-progress-banner" class="progress-banner hidden">
-        <div class="progress-header">
-          <div class="progress-text">
-            <span class="spinner"></span>
-            <strong id="progress-phase-title">Crawling directory tree & checking for ghost files...</strong>
+      <!-- Scanning Progress Strip -->
+      <div id="scan-progress-banner" class="progress-strip hidden">
+        <div class="progress-strip-header">
+          <div class="spinner"></div>
+          <span id="progress-phase-title">Crawling directory entries and checking /proc file descriptors...</span>
+          <button id="btn-cancel-scan" class="btn-text">Cancel</button>
+        </div>
+        <div class="progress-strip-bar">
+          <div class="progress-strip-fill" id="progress-bar-fill" style="width: 45%;"></div>
+        </div>
+      </div>
+
+      <!-- VIEW 1: OVERVIEW -->
+      <section id="view-overview" class="content-panel active">
+        <!-- Storage Summary Card -->
+        <div class="panel-card summary-card">
+          <div class="summary-top">
+            <div class="summary-id">
+              <span class="summary-sub">Target Filesystem</span>
+              <h2 class="summary-title" id="overview-drive-name">/ (Root Filesystem)</h2>
+            </div>
+            <div class="summary-stats-grid">
+              <div class="stat-cell">
+                <span class="stat-label">Used Space</span>
+                <span class="stat-value text-accent" id="overview-used">11.89 GB</span>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">Available Space</span>
+                <span class="stat-value text-success" id="overview-avail">13.11 GB</span>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">Total Capacity</span>
+                <span class="stat-value" id="overview-total">25.00 GB</span>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-label">Usage Percentage</span>
+                <span class="stat-value" id="overview-bar-used-pct">48%</span>
+              </div>
+            </div>
           </div>
-          <button id="btn-cancel-scan" class="btn-secondary-sm">Cancel</button>
+
+          <!-- Clean Horizontal Usage Progress Bar -->
+          <div class="usage-track-container">
+            <div class="usage-track">
+              <div class="usage-fill" id="overview-bar-fill" style="width: 48%;"></div>
+            </div>
+            <div class="usage-sublabels">
+              <span>Used: <strong id="overview-legend-used">11.89 GB</strong></span>
+              <span>Available: <strong class="text-success" id="overview-legend-avail">13.11 GB</strong></span>
+            </div>
+          </div>
         </div>
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill" id="progress-bar-fill" style="width: 45%;"></div>
+
+        <!-- Compact Storage Analysis (Replaces the large discrepancy breakdown & formula) -->
+        <div class="panel-card">
+          <div class="card-header">
+            <h3>Storage Analysis</h3>
+            <span class="card-hint">Reconciled breakdown of crawled files vs kernel filesystem telemetry</span>
+          </div>
+
+          <div class="analysis-compact-grid">
+            <div class="analysis-item">
+              <div class="analysis-dot dot-scanned"></div>
+              <div class="analysis-info">
+                <span class="analysis-label">Scanned Files</span>
+                <span class="analysis-desc">Files directly crawlable in directory tree</span>
+              </div>
+              <strong class="analysis-size" id="stat-scanned-val">14.93 GB</strong>
+            </div>
+
+            <div class="analysis-item">
+              <div class="analysis-dot dot-deleted"></div>
+              <div class="analysis-info">
+                <span class="analysis-label">Deleted-Open Files</span>
+                <span class="analysis-desc">Unlinked files still held active by running processes</span>
+              </div>
+              <strong class="analysis-size text-amber" id="stat-deleted-val">36 KB</strong>
+            </div>
+
+            <div class="analysis-item">
+              <div class="analysis-dot dot-reserved"></div>
+              <div class="analysis-info">
+                <span class="analysis-label">Reserved Space</span>
+                <span class="analysis-desc">Safety headroom protected by Linux for superuser</span>
+              </div>
+              <strong class="analysis-size" id="stat-reserved-val">1.27 GB</strong>
+            </div>
+
+            <div class="analysis-item">
+              <div class="analysis-dot dot-unexplained"></div>
+              <div class="analysis-info">
+                <span class="analysis-label">Unexplained Difference</span>
+                <span class="analysis-desc">Filesystem metadata, journal, or restricted paths</span>
+              </div>
+              <strong class="analysis-size" id="stat-unexplained-val">0 B</strong>
+            </div>
+          </div>
         </div>
-        <div class="progress-stats">
-          <span>Entries: <b id="stat-entries">142,850</b></span>
-          <span>Apparent Size: <b id="stat-apparent">284.2 GB</b></span>
-          <span>Allocated Blocks: <b id="stat-allocated">280.0 GB</b></span>
-          <span>Skipped Subtrees: <b id="stat-skipped">3</b></span>
+
+        <!-- Important Findings Section -->
+        <div class="panel-card">
+          <div class="card-header">
+            <h3>Important Findings & Recommendations</h3>
+            <span class="card-hint">Issues requiring operator review or safe reclamation</span>
+          </div>
+
+          <div class="findings-compact-list" id="overview-findings-list">
+            <!-- Injected via JavaScript -->
+          </div>
         </div>
+
+        <!-- Optional Expandable Technical Details -->
+        <details class="tech-accordion">
+          <summary>
+            <span>Technical Details & Advanced Telemetry</span>
+            <span class="accordion-arrow">▾</span>
+          </summary>
+          <div class="tech-accordion-body">
+            <div class="tech-metrics-grid">
+              <div class="tech-cell">
+                <span class="tech-label">Directory Crawl Allocation</span>
+                <strong class="tech-value" id="tech-crawl-total">14.93 GB</strong>
+              </div>
+              <div class="tech-cell">
+                <span class="tech-label">Deleted-Open Inodes</span>
+                <strong class="tech-value" id="tech-deleted-open">36 KB</strong>
+              </div>
+              <div class="tech-cell">
+                <span class="tech-label">Superuser Safety Reserve</span>
+                <strong class="tech-value" id="tech-reserved">1.27 GB</strong>
+              </div>
+              <div class="tech-cell">
+                <span class="tech-label">Noise Margin Tolerance</span>
+                <strong class="tech-value">64.00 MB</strong>
+              </div>
+              <div class="tech-cell">
+                <span class="tech-label">Discrepancy Attribution</span>
+                <strong class="tech-value" id="tech-unresolved">0 B (Reconciled)</strong>
+              </div>
+              <div class="tech-cell">
+                <span class="tech-label">Investigation Policy</span>
+                <strong class="tech-value">Remainder never labeled as junk</strong>
+              </div>
+            </div>
+          </div>
+        </details>
       </section>
 
-      <!-- View 0: Quick Clean & Recovery (Simple Mode) -->
-      <div id="view-clean" class="content-view active">
-        <!-- Health & Usage Hero -->
-        <div class="simple-hero-card">
-          <div class="health-header">
-            <div class="health-icon-box">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <path d="m9 12 2 2 4-4"/>
-              </svg>
-            </div>
-            <div class="health-titles">
-              <h2 id="simple-health-title">Your Linux Disk is Healthy</h2>
-              <p id="simple-health-subtitle">Scan complete: no critical storage issues or runaway leaks found.</p>
-            </div>
-          </div>
-
-          <div class="storage-meter-container">
-            <div class="meter-labels">
-              <span>Used: <strong id="simple-stat-used">11.89 GB</strong></span>
-              <span>Free: <strong class="text-emerald" id="simple-stat-free">13.11 GB</strong></span>
-              <span>Total: <strong id="simple-stat-total">25.00 GB</strong></span>
-            </div>
-            <div class="storage-bar-track">
-              <div class="storage-bar-fill" id="simple-bar-fill" style="width: 48%;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Safe Cleanup Hero -->
-        <div class="recovery-hero-card">
-          <div class="recovery-left">
-            <h3>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-              </svg>
-              Safe Storage Cleanup
-            </h3>
-            <p>
-              GhostDisk safely clears temporary application cache files and test sandboxes. 
-              <strong>Your personal files, documents, and Linux system files are 100% safe and will never be deleted.</strong>
-            </p>
-            <ul class="recovery-checklist">
-              <li><span>✓</span> Safe target: <code>/tmp/ghostdisk_test/</code> (strict directory allowlist)</li>
-              <li><span>✓</span> Pre-checked: Identity verified with zero shell commands</li>
-              <li><span>✓</span> Safe recovery preview: Space verified immediately after removal</li>
-            </ul>
-          </div>
-          <div class="recovery-right">
-            <span class="reclaim-size-tag" id="simple-cleanable-num">20.00 MB</span>
-            <span style="font-size: 0.78rem; color: var(--text-muted);">Safe Space to Free</span>
-            <label class="simple-confirm-label">
-              <input type="checkbox" id="simple-clean-consent">
-              <span>I confirm cleaning safe temporary files</span>
-            </label>
-            <button id="btn-simple-clean" class="btn-clean-now" disabled>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              <span>Clean Safe Cache</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Success Notification Box (Initially Hidden) -->
-        <div id="simple-clean-success" class="recovery-success-box hidden">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22 4 12 14.01 9 11.01"/>
-          </svg>
-          <div>
-            <strong>Cleaned Successfully!</strong>
-            <span id="simple-success-msg">Freed 20.00 MB. Storage was reclaimed and verified with the filesystem.</span>
-          </div>
-        </div>
-
-        <!-- 3 Simple Concept Cards (No OS Theory) -->
-        <div class="simple-grid-3">
-          <div class="simple-card">
-            <div class="simple-card-header">
-              <span class="simple-card-title">📁 Normal Apps & Files</span>
-              <span class="badge-info" style="font-size: 0.72rem; padding: 2px 6px;">Active</span>
-            </div>
-            <div class="simple-card-val text-blue" id="simple-card-normal">11.89 GB</div>
-            <p class="simple-card-desc">
-              Your Linux operating system, installed desktop applications, and user files.
-            </p>
-          </div>
-
-          <div class="simple-card">
-            <div class="simple-card-header">
-              <span class="simple-card-title">👻 Ghost Files</span>
-              <span class="badge-warning" style="font-size: 0.72rem; padding: 2px 6px;" id="simple-ghost-badge">36 KB</span>
-            </div>
-            <div class="simple-card-val text-amber" id="simple-card-ghost">36 KB</div>
-            <p class="simple-card-desc">
-              Files that were deleted, but running background apps still have open. Restarting the app releases this space.
-            </p>
-          </div>
-
-          <div class="simple-card">
-            <div class="simple-card-header">
-              <span class="simple-card-title">🛡️ System Headroom</span>
-              <span class="badge-emerald" style="font-size: 0.72rem; padding: 2px 6px;">Protected</span>
-            </div>
-            <div class="simple-card-val text-emerald" id="simple-card-reserve">1.27 GB</div>
-            <p class="simple-card-desc">
-              Linux reserved emergency buffer so the system never locks up when storage fills up.
-            </p>
-          </div>
-        </div>
-
-        <!-- Top Large Folders Overview -->
-        <div class="card" style="margin-top: 10px;">
+      <!-- VIEW 2: STORAGE ANALYSIS (Full Directory Table) -->
+      <section id="view-analysis" class="content-panel">
+        <div class="panel-card">
           <div class="card-header">
             <div>
-              <h3>Where Your Storage Is Going</h3>
-              <p class="subtitle">Largest folders crawled on your disk.</p>
+              <h3>Directory Storage Breakdown</h3>
+              <span class="card-hint">Physical block allocation vs apparent size per directory</span>
             </div>
-            <button class="link-btn" onclick="switchView('tree')">View All Folders →</button>
+            <input type="text" id="analysis-search" class="search-input" placeholder="Search path...">
           </div>
-          <div class="table-responsive">
+
+          <div class="table-container">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Folder</th>
-                  <th>Disk Space</th>
-                  <th>Category</th>
+                  <th>Path</th>
+                  <th>Allocated Space</th>
+                  <th>Apparent Size</th>
+                  <th>Type</th>
+                  <th>Inode</th>
                 </tr>
               </thead>
-              <tbody id="simple-folder-tbody">
-                <tr>
-                  <td><code>/usr</code></td>
-                  <td><strong>128.40 GB</strong></td>
-                  <td>Installed Software & System Libraries</td>
-                </tr>
-                <tr>
-                  <td><code>/var</code></td>
-                  <td><strong>84.20 GB</strong></td>
-                  <td>Application Data & Logs</td>
-                </tr>
-                <tr>
-                  <td><code>/home</code></td>
-                  <td><strong>42.10 GB</strong></td>
-                  <td>Your Personal Documents & Downloads</td>
-                </tr>
+              <tbody id="storage-tree-body">
+                <!-- Injected via JavaScript -->
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- View 1: Dashboard (Technical Charts) -->
-      <div id="view-dashboard" class="content-view">
-        <!-- Hero Capacity Breakdown -->
-        <div class="hero-grid">
-          <!-- Donut Card -->
-          <div class="card donut-card">
-            <div class="card-header">
-              <h3>Capacity Discrepancy Breakdown</h3>
-              <span class="tag-live">telemetry: statvfs + /proc</span>
-            </div>
-            <div class="donut-content">
-              <div class="donut-graphic-wrapper">
-                <svg class="donut-svg" viewBox="0 0 200 200">
-                  <circle cx="100" cy="100" r="70" class="donut-bg"/>
-                  <!-- Segment 1: Visible Files (280 GB) -->
-                  <circle cx="100" cy="100" r="70" class="donut-segment seg-accounted" stroke-dasharray="242 440" stroke-dashoffset="0"/>
-                  <!-- Segment 2: Deleted Open (25.4 GB) -->
-                  <circle cx="100" cy="100" r="70" class="donut-segment seg-deleted" stroke-dasharray="22 440" stroke-dashoffset="-242"/>
-                  <!-- Segment 3: Superuser Reserve (15 GB) -->
-                  <circle cx="100" cy="100" r="70" class="donut-segment seg-reserved" stroke-dasharray="13 440" stroke-dashoffset="-264"/>
-                  <!-- Segment 4: Unexplained (4.6 GB) -->
-                  <circle cx="100" cy="100" r="70" class="donut-segment seg-unresolved" stroke-dasharray="4 440" stroke-dashoffset="-277"/>
-                </svg>
-                <div class="donut-center">
-                  <span class="donut-used-val" id="donut-total-used">325.0 GB</span>
-                  <span class="donut-used-lbl">Reported Used</span>
-                </div>
-              </div>
-
-              <div class="legend-list">
-                <div class="legend-item">
-                  <span class="legend-dot dot-accounted"></span>
-                  <div class="legend-meta">
-                    <span class="legend-name">Scanned Visible Files</span>
-                    <span class="legend-sub">Directory crawler allocation</span>
-                  </div>
-                  <span class="legend-val" id="val-accounted">280.00 GB</span>
-                </div>
-
-                <div class="legend-item highlighted">
-                  <span class="legend-dot dot-deleted"></span>
-                  <div class="legend-meta">
-                    <span class="legend-name">Deleted-But-Open Files</span>
-                    <span class="legend-sub">Held open by running processes</span>
-                  </div>
-                  <span class="legend-val text-emerald" id="val-deleted">25.40 GB</span>
-                </div>
-
-                <div class="legend-item">
-                  <span class="legend-dot dot-reserved"></span>
-                  <div class="legend-meta">
-                    <span class="legend-name">Superuser Reserve</span>
-                    <span class="legend-sub">statvfs protected headroom</span>
-                  </div>
-                  <span class="legend-val" id="val-reserved">15.00 GB</span>
-                </div>
-
-                <div class="legend-item">
-                  <span class="legend-dot dot-unresolved"></span>
-                  <div class="legend-meta">
-                    <span class="legend-name">Unresolved Remainder</span>
-                    <span class="legend-sub">Snapshots, metadata & skipped paths</span>
-                  </div>
-                  <span class="legend-val text-amber" id="val-unresolved">4.60 GB</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Formula / Quick Math Card -->
-          <div class="card formula-card">
-            <h3>Discrepancy Formula</h3>
-            <p class="formula-desc">Every byte difference is mathematically explained rather than assumed.</p>
-
-            <div class="math-flow">
-              <div class="math-step">
-                <span class="math-label">Filesystem Used</span>
-                <span class="math-value" id="math-fs-used">325.00 GB</span>
-              </div>
-              <div class="math-operator">−</div>
-              <div class="math-step">
-                <span class="math-label">Scanned Allocated</span>
-                <span class="math-value" id="math-scan-alloc">280.00 GB</span>
-              </div>
-              <div class="math-operator">=</div>
-              <div class="math-step highlight-gap">
-                <span class="math-label">Raw Discrepancy</span>
-                <span class="math-value" id="math-raw-gap">45.00 GB</span>
-              </div>
-            </div>
-
-            <div class="reconciliation-box">
-              <h4>Evidence Attribution:</h4>
-              <div class="reconcile-row">
-                <span>✓ Deduplicated Deleted-Open Files:</span>
-                <strong id="reconcile-deleted">- 25.40 GB</strong>
-              </div>
-              <div class="reconcile-row">
-                <span>✓ Superuser Safety Reserve:</span>
-                <strong id="reconcile-reserve">- 15.00 GB</strong>
-              </div>
-              <div class="reconcile-row border-top">
-                <span>Unexplained Remainder (Investigation Target):</span>
-                <strong class="text-amber" id="reconcile-unresolved">4.60 GB</strong>
-              </div>
-            </div>
-
-            <div class="safety-banner">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
-              <span>Golden Rule: Remainder is never labeled as "junk" or "safe to delete".</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 4 Metric Cards -->
-        <div class="metrics-row">
-          <div class="metric-card">
-            <span class="metric-lbl">Total Capacity</span>
-            <span class="metric-num" id="metric-total-capacity">512.00 GB</span>
-            <span class="metric-hint" id="metric-total-hint">f_blocks × f_frsize</span>
-          </div>
-          <div class="metric-card">
-            <span class="metric-lbl">Raw Used</span>
-            <span class="metric-num text-blue" id="metric-raw-used">325.00 GB</span>
-            <span class="metric-hint" id="metric-used-hint">63.4% of device</span>
-          </div>
-          <div class="metric-card">
-            <span class="metric-lbl">User Available</span>
-            <span class="metric-num text-emerald" id="metric-user-avail">172.00 GB</span>
-            <span class="metric-hint">Writeable by non-root</span>
-          </div>
-          <div class="metric-card">
-            <span class="metric-lbl">Active Deleted Leaks</span>
-            <span class="metric-num text-purple" id="metric-deleted-leaks">25.40 GB</span>
-            <span class="metric-hint" id="metric-deleted-hint">2 processes holding descriptors</span>
-          </div>
-        </div>
-
-        <!-- Actionable Findings Preview -->
-        <div class="section-title-row">
-          <h3>Top Storage Diagnostics</h3>
-          <button class="link-btn" onclick="switchView('findings')">View All Findings →</button>
-        </div>
-
-        <div class="findings-container" id="dashboard-findings-container">
-          <div class="finding-card critical" onclick="openFindingModal(0)">
-            <div class="finding-badge badge-critical">Critical — 18.20 GB</div>
-            <div class="finding-main">
-              <h4>Deleted file held open: access.log</h4>
-              <p class="finding-summary"><code>nginx</code> (PID 4123) holds deleted descriptor <code>fd 7</code> on inode 984123.</p>
-            </div>
-            <div class="finding-action">
-              <span class="badge-guidance">Guidance: Reload Service</span>
-              <button class="btn-inspect">Inspect Evidence</button>
-            </div>
-          </div>
-
-          <div class="finding-card warning" onclick="openFindingModal(1)">
-            <div class="finding-badge badge-warning">Warning — 7.20 GB</div>
-            <div class="finding-main">
-              <h4>Deleted file held open: temp_sort_buffer.tmp</h4>
-              <p class="finding-summary"><code>postgres</code> (PID 8904) holds deleted descriptor <code>fd 14</code> on inode 442109.</p>
-            </div>
-            <div class="finding-action">
-              <span class="badge-guidance">Guidance: Monitor Query</span>
-              <button class="btn-inspect">Inspect Evidence</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- View 2: Findings & Evidence Detail -->
-      <div id="view-findings" class="content-view">
-        <div class="card">
+      <!-- VIEW 3: DELETED-OPEN FILES -->
+      <section id="view-deleted-files" class="content-panel">
+        <div class="panel-card">
           <div class="card-header">
             <div>
-              <h3>Reconciled Diagnostic Findings</h3>
-              <p class="subtitle">Evidence-based analysis adhering to the 4-pillar diagnostics contract.</p>
+              <h3>Deleted-But-Open Files</h3>
+              <span class="card-hint">Files unlinked from directory tree but still holding disk space</span>
             </div>
             <div class="filter-group">
-              <button class="filter-btn active" data-filter="all">All (3)</button>
-              <button class="filter-btn" data-filter="critical">Critical (1)</button>
-              <button class="filter-btn" data-filter="warning">Warning (1)</button>
-              <button class="filter-btn" data-filter="info">Info (1)</button>
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="critical">Critical</button>
+              <button class="filter-btn" data-filter="warning">Warning</button>
+              <button class="filter-btn" data-filter="info">Info</button>
             </div>
           </div>
 
-          <div class="findings-full-list" id="findings-full-list">
-            <!-- Injected by JavaScript -->
+          <div class="findings-compact-list" id="findings-full-list">
+            <!-- Injected via JavaScript -->
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- View 3: Directory Tree View -->
-      <div id="view-tree" class="content-view">
-        <div class="card">
+      <!-- VIEW 4: LARGE FOLDERS -->
+      <section id="view-folders" class="content-panel">
+        <div class="panel-card">
           <div class="card-header">
             <div>
-              <h3>Storage Directory Tree</h3>
-              <p class="subtitle">Differentiates physical allocated disk blocks from apparent logical sizes.</p>
-            </div>
-            <div class="tree-controls">
-              <input type="text" class="input-search" placeholder="Filter path or filename...">
-              <select class="sort-select">
-                <option>Sort by Allocated Bytes (st_blocks × 512)</option>
-                <option>Sort by Apparent Size (st_size)</option>
-              </select>
+              <h3>Large Folders</h3>
+              <span class="card-hint">Top storage consumers identified during directory crawl</span>
             </div>
           </div>
 
@@ -513,119 +331,89 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Path / Entry Name</th>
-                  <th>Allocated Disk Space</th>
-                  <th>Apparent Size</th>
-                  <th>Type</th>
-                  <th>Device & Inode</th>
+                  <th>Folder Path</th>
+                  <th>Allocated Space</th>
+                  <th>Category</th>
                 </tr>
               </thead>
-              <tbody id="tree-table-body">
+              <tbody id="folders-table-body">
                 <!-- Injected via JavaScript -->
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- View 4: Safe Recovery Sandbox Zone -->
-      <div id="view-recovery" class="content-view">
-        <div class="card">
-          <div class="card-header">
+      <!-- VIEW 5: SAFE CLEANUP -->
+      <section id="view-cleanup" class="content-panel">
+        <div class="panel-card cleanup-card">
+          <div class="cleanup-header">
             <div>
-              <h3>Safe Recovery Coordinator (Member 4)</h3>
-              <p class="subtitle">The only mutation path. Strictly restricted to allowlisted test/cache directories.</p>
+              <h3>Safe Storage Cleanup</h3>
+              <p class="cleanup-desc">
+                Reclaim storage from verified temporary test files and caches. 
+                GhostDisk strictly enforces an allowlist (<code class="mono-code">/tmp/ghostdisk_test/</code>) and will never modify personal documents or system files.
+              </p>
             </div>
-            <span class="badge-allowlist">Allowlist Active: ~/.cache/ghostdisk_test/, /tmp/ghostdisk_test/</span>
+            <div class="cleanup-reclaim-badge">
+              <span class="badge-sub">Reclaimable</span>
+              <strong class="badge-amount" id="cleanup-reclaimable-size">20.00 MB</strong>
+            </div>
           </div>
 
-          <div class="recovery-workflow-grid">
-            <!-- Stage 1: Read-Only Preview -->
-            <div class="recovery-step-box">
-              <div class="step-num">Stage 1</div>
-              <h4>Read-Only Preview Generation</h4>
-              <p>Target metadata is inspected via <code>lstat()</code>. Does not alter any file.</p>
-
-              <div class="preview-target-card">
-                <div class="preview-field">
-                  <span>Target Path:</span>
-                  <code>/tmp/ghostdisk_test/cache_cleanup_demo.tmp</code>
-                </div>
-                <div class="preview-field">
-                  <span>Allowlist Status:</span>
-                  <span class="tag-approved">✓ Validated within /tmp/ghostdisk_test/</span>
-                </div>
-                <div class="preview-field">
-                  <span>Estimated Reclaimable:</span>
-                  <strong>20.00 MB (40,960 blocks)</strong>
-                </div>
-                <div class="preview-field">
-                  <span>Identity Validation:</span>
-                  <span>Dev: 2050 | Inode: 884102 | Non-symlink: YES</span>
-                </div>
-              </div>
+          <div class="cleanup-details-box">
+            <div class="detail-row">
+              <span class="detail-label">Target Sandbox Path:</span>
+              <code class="mono-code">/tmp/ghostdisk_test/cache_cleanup_demo.tmp</code>
             </div>
-
-            <!-- Stage 2: Confirmed Execution -->
-            <div class="recovery-step-box">
-              <div class="step-num">Stage 2</div>
-              <h4>Operator Confirmation & TOCTOU Defense</h4>
-              <p>Re-verifies device, inode, size and non-symlink status immediately before direct POSIX <code>unlink()</code>.</p>
-
-              <div class="consent-group">
-                <label class="consent-checkbox-label">
-                  <input type="checkbox" id="consent-check">
-                  <span>I understand that this action unlinks this allowlisted file and cannot be undone.</span>
-                </label>
-              </div>
-
-              <div class="recovery-buttons">
-                <button id="btn-execute-recovery" class="btn-danger" disabled>
-                  Execute Verified Unlink
-                </button>
-                <button class="btn-secondary" onclick="resetRecoveryDemo()">Reset Demo File</button>
-              </div>
-
-              <!-- Verification Result Card -->
-              <div id="recovery-verification-card" class="verification-card hidden">
-                <div class="verif-header">
-                  <span class="icon-check">✓</span>
-                  <strong>Verification Service Report</strong>
-                </div>
-                <div class="verif-row">
-                  <span>Available Space Before:</span>
-                  <span>172,000.00 MB</span>
-                </div>
-                <div class="verif-row">
-                  <span>Available Space After:</span>
-                  <span>172,020.00 MB</span>
-                </div>
-                <div class="verif-row highlight">
-                  <span>Observed Delta Reclaimed:</span>
-                  <strong class="text-emerald">+20.00 MB (+20,971,520 Bytes)</strong>
-                </div>
-                <p class="verif-note">Audit record logged with status: <code>SUCCESS_VERIFIED</code></p>
-              </div>
+            <div class="detail-row">
+              <span class="detail-label">Allowlist Validation:</span>
+              <span class="tag-status safe">Validated in allowlist</span>
             </div>
+            <div class="detail-row">
+              <span class="detail-label">Deletion Guard:</span>
+              <span>Direct POSIX unlink() with strict TOCTOU identity verification</span>
+            </div>
+          </div>
+
+          <div class="cleanup-actions">
+            <label class="consent-check-label">
+              <input type="checkbox" id="consent-check">
+              <span>I confirm cleaning this safe allowlisted temporary file.</span>
+            </label>
+            <button id="btn-execute-recovery" class="btn-primary" disabled>
+              Execute Safe Cleanup
+            </button>
+          </div>
+
+          <!-- Post-Cleanup Verification Result -->
+          <div id="recovery-verification-card" class="verification-card hidden">
+            <div class="verif-heading">
+              <span class="verif-icon">✓</span>
+              <strong>Cleanup Verified Successfully</strong>
+            </div>
+            <p class="verif-desc">
+              Reclaimed <strong class="text-success">+20.00 MB</strong>. Storage delta was confirmed with the filesystem and logged to the audit log.
+            </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- View 5: Audit History -->
-      <div id="view-audit" class="content-view">
-        <div class="card">
+      <!-- VIEW 6: HISTORY -->
+      <section id="view-history" class="content-panel">
+        <div class="panel-card">
           <div class="card-header">
             <div>
-              <h3>Audit Database & Verification History</h3>
-              <p class="subtitle">SQLite schema persistence (scan_runs, findings, recovery_actions).</p>
+              <h3>Audit & Activity History</h3>
+              <span class="card-hint">Immutable log of disk scans, diagnostics, and verified cleanup actions</span>
             </div>
-            <button id="btn-export-json" class="btn-primary-sm">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button id="btn-export-json" class="btn-subtle">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7 10 12 15 17 10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              Export Diagnostic JSON Report
+              Export JSON Report
             </button>
           </div>
 
@@ -634,11 +422,11 @@
               <thead>
                 <tr>
                   <th>Timestamp</th>
-                  <th>Action Type</th>
-                  <th>Target / Finding</th>
-                  <th>Approved</th>
-                  <th>Observed Delta</th>
-                  <th>Audit Message</th>
+                  <th>Action</th>
+                  <th>Target</th>
+                  <th>Status</th>
+                  <th>Delta</th>
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody id="audit-table-body">
@@ -647,71 +435,45 @@
             </table>
           </div>
         </div>
-      </div>
+      </section>
     </main>
   </div>
 
-  <!-- Modal: 4-Pillar Finding Detail Modal -->
-  <div id="finding-modal" class="modal-overlay hidden">
+  <!-- Detail Modal: 4-Pillar Finding Inspection -->
+  <div id="finding-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="modal-title-group">
-          <span id="modal-severity-badge" class="badge-critical">Critical</span>
-          <h3 id="modal-finding-title">Deleted file held open: access.log</h3>
+        <div class="modal-header-left">
+          <span id="modal-severity-badge" class="tag-status">Finding</span>
+          <h3 id="modal-finding-title">Deleted File Held Open</h3>
         </div>
         <button class="modal-close-btn" onclick="closeFindingModal()">&times;</button>
       </div>
 
       <div class="modal-body">
-        <div class="four-pillar-grid">
-          <!-- Pillar 1 -->
-          <div class="pillar-box">
-            <div class="pillar-title">
-              <span class="pillar-icon">📊</span>
-              <strong>1. Confirmed Observed Facts</strong>
-            </div>
-            <ul id="modal-confirmed-facts" class="pillar-list">
-              <!-- Dynamically populated -->
-            </ul>
-          </div>
+        <div class="modal-section">
+          <h4>1. Confirmed Observed Facts</h4>
+          <ul id="modal-confirmed-facts" class="modal-list"></ul>
+        </div>
 
-          <!-- Pillar 2 -->
-          <div class="pillar-box">
-            <div class="pillar-title">
-              <span class="pillar-icon">💡</span>
-              <strong>2. Likely OS Explanation</strong>
-            </div>
-            <p id="modal-explanation" class="pillar-text">
-              <!-- Dynamically populated -->
-            </p>
-          </div>
+        <div class="modal-section">
+          <h4>2. Likely OS Explanation</h4>
+          <p id="modal-explanation" class="modal-text"></p>
+        </div>
 
-          <!-- Pillar 3 -->
-          <div class="pillar-box">
-            <div class="pillar-title">
-              <span class="pillar-icon">⚠️</span>
-              <strong>3. Limitations & Scan Caveats</strong>
-            </div>
-            <ul id="modal-limitations" class="pillar-list">
-              <!-- Dynamically populated -->
-            </ul>
-          </div>
+        <div class="modal-section">
+          <h4>3. Limitations & Caveats</h4>
+          <ul id="modal-limitations" class="modal-list"></ul>
+        </div>
 
-          <!-- Pillar 4 -->
-          <div class="pillar-box highlight-pillar">
-            <div class="pillar-title">
-              <span class="pillar-icon">🛡️</span>
-              <strong>4. Recommended Operator Action</strong>
-            </div>
-            <p id="modal-recommendation" class="pillar-text bold">
-              <!-- Dynamically populated -->
-            </p>
-          </div>
+        <div class="modal-section callout">
+          <h4>4. Recommended Next Step</h4>
+          <p id="modal-recommendation" class="modal-text text-accent"></p>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="btn-secondary" onclick="closeFindingModal()">Close</button>
+        <button class="btn-subtle" onclick="closeFindingModal()">Close</button>
       </div>
     </div>
   </div>

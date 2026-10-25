@@ -1,179 +1,161 @@
-// GhostDisk Interactive Web UI Controller
+// GhostDisk Frontend Controller
 
-// Diagnostic Findings Database (4-Pillar Architecture)
+// Diagnostic Findings Data
 let FINDINGS_DATA = [
   {
     id: 0,
-    title: "Deleted file still held open: access.log (18.20 GB)",
+    title: "Deleted file still held open: access.log",
     severity: "Critical",
-    severityClass: "badge-critical",
-    relatedBytes: "18.20 GB (38,168,576 blocks)",
+    severityClass: "critical",
+    relatedBytes: "18.20 GB",
     process: "nginx (PID 4123, user www-data)",
     fd: 7,
     inode: 984123,
     device: 2050,
-    summary: "nginx (PID 4123) holds deleted descriptor fd 7 on inode 984123.",
-    guidance: "Guidance: Reload Service",
+    summary: "nginx (PID 4123) holds deleted descriptor on access.log.",
+    guidance: "Reload Nginx service to release storage without dropping connections.",
     confirmedFacts: [
       "Path before deletion: /var/log/nginx/access.log",
-      "Allocated on disk: 18.20 GB (apparent size 18.20 GB)",
+      "Allocated on disk: 18.20 GB",
       "Held by PID 4123 (nginx, user www-data) on fd 7",
       "Filesystem Identity: Device 2050, Inode 984123"
     ],
-    explanation: "The file was unlinked from the filesystem tree (likely during logrotate), but the nginx master process was not reloaded. Linux maintains unlinked disk blocks active until all holding file descriptors are closed.",
+    explanation: "The log file was unlinked during rotation, but nginx was not reloaded. Linux maintains unlinked storage blocks until the holding process closes its descriptor.",
     limitations: [
-      "Detected from the '(deleted)' marker in /proc/4123/fd/7",
-      "File contents are never inspected by GhostDisk",
-      "Process may close descriptor at any time; verify before action"
+      "Identified from the '(deleted)' symlink target in /proc/4123/fd/7",
+      "GhostDisk does not inspect file contents"
     ],
-    recommendation: "Run 'sudo systemctl reload nginx' or send SIGHUP. This signals nginx to re-open its log files and release the unlinked 18.2 GB storage without dropping active connections. GhostDisk never terminates processes automatically."
+    recommendation: "Run 'sudo systemctl reload nginx' or send SIGHUP. GhostDisk never terminates processes automatically."
   },
   {
     id: 1,
-    title: "Deleted file still held open: temp_sort_buffer.tmp (7.20 GB)",
+    title: "Deleted file still held open: sort.tmp",
     severity: "Warning",
-    severityClass: "badge-warning",
-    relatedBytes: "7.20 GB (15,099,494 blocks)",
+    severityClass: "warning",
+    relatedBytes: "7.20 GB",
     process: "postgres (PID 8904, user postgres)",
     fd: 14,
     inode: 442109,
     device: 2050,
-    summary: "postgres (PID 8904) holds deleted descriptor fd 14 on inode 442109.",
-    guidance: "Guidance: Monitor Query",
+    summary: "PostgreSQL holds temporary sorting buffer descriptor.",
+    guidance: "Monitor query via pg_stat_activity. Reclaims automatically upon transaction completion.",
     confirmedFacts: [
       "Path before deletion: /var/lib/postgresql/14/main/base/pgsql_tmp/sort.tmp",
-      "Allocated on disk: 7.20 GB (apparent size 7.20 GB)",
-      "Held by PID 8904 (postgres worker backend) on fd 14",
-      "Filesystem Identity: Device 2050, Inode 442109"
+      "Allocated on disk: 7.20 GB",
+      "Held by PID 8904 (postgres worker) on fd 14"
     ],
-    explanation: "PostgreSQL intentionally created an anonymous disk-spill buffer for a large analytical sorting query and unlinked it immediately. The space will be automatically reclaimed when the query finishes.",
+    explanation: "PostgreSQL unlinked an active disk-spill buffer for a large sort query. Storage is released when the transaction finishes.",
     limitations: [
-      "Workload-dependent temporary storage",
       "Active database transaction in progress"
     ],
-    recommendation: "Review active long-running queries via pg_stat_activity. Do not force terminate the backend unless the query is hung or runaway."
+    recommendation: "Review active queries. Avoid force-killing the backend unless hung."
   },
   {
     id: 2,
-    title: "Unexplained storage difference: 4.60 GB",
+    title: "Temporary cache sandbox ready for safe cleanup",
     severity: "Info",
-    severityClass: "badge-info",
-    relatedBytes: "4.60 GB",
-    process: "None (System accounting)",
+    severityClass: "info",
+    relatedBytes: "20.00 MB",
+    process: "None (System cache)",
     fd: -1,
-    inode: 0,
+    inode: 884102,
     device: 2050,
-    summary: "Difference between filesystem used and crawled directory total after accounting for open deleted files.",
-    guidance: "Guidance: Review Skipped Paths",
+    summary: "Allowlisted test and scratch file in /tmp/ghostdisk_test/.",
+    guidance: "Safe to clean. Proceed to 'Safe Cleanup' view.",
     confirmedFacts: [
-      "Filesystem reports 325.00 GB used on /",
-      "Directory crawler found 280.00 GB allocated",
-      "Explained by deleted-open files: 25.40 GB",
-      "Superuser reservation headroom: 15.00 GB",
-      "Still unresolved remainder: 4.60 GB (tolerance applied: 64 MB)"
+      "Path: /tmp/ghostdisk_test/cache_cleanup_demo.tmp",
+      "Size: 20.00 MB",
+      "Validated within safe directory allowlist"
     ],
-    explanation: "Possible causes, none of them confirmed: ext4 filesystem journal metadata, internal block group descriptors, 3 root-restricted directories skipped due to permissions, or concurrent file writes during crawl.",
+    explanation: "Temporary test cache created by testing workloads.",
     limitations: [
-      "3 protected subtrees skipped (/root, /var/spool/cron, /etc/ssl/private)",
-      "Unprivileged crawler cannot inspect protected metadata blocks"
+      "Confirmed non-symlink file before deletion"
     ],
-    recommendation: "Golden Rule: Treat this as an investigation target, not something to delete. Review the 3 skipped paths and filesystem snapshot lists. Do not attempt blind automated cleanup."
+    recommendation: "Clean via Safe Cleanup."
   }
 ];
 
-// Tree Data Samples
+// Directory Tree Data
 let TREE_DATA = [
-  { path: "/usr", allocated: "128.40 GB", apparent: "125.10 GB", type: "Directory", dev: "2050", ino: "2" },
-  { path: "/var", allocated: "84.20 GB", apparent: "81.90 GB", type: "Directory", dev: "2050", ino: "14" },
-  { path: "/home", allocated: "42.10 GB", apparent: "41.80 GB", type: "Directory", dev: "2050", ino: "26" },
-  { path: "/var/lib/docker", allocated: "21.50 GB", apparent: "20.10 GB", type: "Directory", dev: "2050", ino: "109" },
-  { path: "/usr/lib/x86_64-linux-gnu", allocated: "18.30 GB", apparent: "17.90 GB", type: "Directory", dev: "2050", ino: "884" },
-  { path: "/usr/bin/python3.10", allocated: "5.80 MB", apparent: "5.80 MB", type: "Symlink (Safe)", dev: "2050", ino: "991" },
-  { path: "/tmp/ghostdisk_test/cache_cleanup_demo.tmp", allocated: "20.00 MB", apparent: "20.00 MB", type: "Allowlisted File", dev: "2050", ino: "884102" }
+  { path: "/usr", allocated: "128.40 GB", apparent: "125.10 GB", type: "Directory", ino: "2", category: "Installed Software & System Libraries" },
+  { path: "/var", allocated: "84.20 GB", apparent: "81.90 GB", type: "Directory", ino: "14", category: "Application State & Logs" },
+  { path: "/home", allocated: "42.10 GB", apparent: "41.80 GB", type: "Directory", ino: "26", category: "User Files & Documents" },
+  { path: "/var/lib/docker", allocated: "21.50 GB", apparent: "20.10 GB", type: "Directory", ino: "109", category: "Container Storage" },
+  { path: "/usr/lib/x86_64-linux-gnu", allocated: "18.30 GB", apparent: "17.90 GB", type: "Directory", ino: "884", category: "System Libraries" },
+  { path: "/usr/bin/python3.10", allocated: "5.80 MB", apparent: "5.80 MB", type: "Symlink", ino: "991", category: "Executables" },
+  { path: "/tmp/ghostdisk_test/cache_cleanup_demo.tmp", allocated: "20.00 MB", apparent: "20.00 MB", type: "File", ino: "884102", category: "Temporary Cache (Allowlisted)" }
 ];
 
 // Audit History Data
 let AUDIT_DATA = [
-  { time: "2026-10-25 16:44:48", action: "VERIFIED_UNLINK", target: "/tmp/ghostdisk_test/ghostdisk_test_20mb.bin", approved: "YES (explicit)", delta: "+20.00 MB", msg: "Observed available space increased from 953.51 GB to 953.53 GB" },
-  { time: "2026-10-25 16:44:42", action: "PREVIEW_GENERATED", target: "/tmp/ghostdisk_test/ghostdisk_test_20mb.bin", approved: "N/A", delta: "0 B", msg: "Preview generated: non-destructive lstat inspection" },
-  { time: "2026-10-25 16:44:39", action: "SCAN_RUN", target: "/ (Root Mount)", approved: "N/A", delta: "0 B", msg: "Completed in 480ms. Discovered 2 deleted-open leaks, 3 skipped subtrees" }
+  { time: "2026-10-25 16:44:48", action: "VERIFIED_UNLINK", target: "/tmp/ghostdisk_test/cache_cleanup_demo.tmp", status: "SUCCESS", delta: "+20.00 MB", msg: "Verified unlink. Observed available storage increased by 20.00 MB." },
+  { time: "2026-10-25 16:44:42", action: "PREVIEW_GENERATED", target: "/tmp/ghostdisk_test/cache_cleanup_demo.tmp", status: "OK", delta: "0 B", msg: "Safe preview generated via non-destructive lstat." },
+  { time: "2026-10-25 16:44:39", action: "SCAN_RUN", target: "/ (Root Mount)", status: "COMPLETED", delta: "0 B", msg: "Scan completed in 480ms. Discovered 2 deleted-open leaks." }
 ];
 
-// View Switching
-function switchView(viewName) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.content-view').forEach(el => el.classList.remove('active'));
-
-  const navBtn = document.querySelector(`.nav-item[data-view="${viewName}"]`);
-  if (navBtn) navBtn.classList.add('active');
-
-  const viewEl = document.getElementById(`view-${viewName}`);
-  if (viewEl) viewEl.classList.add('active');
-
-  // Update mode pills in header
-  const pillSimple = document.getElementById('btn-mode-simple');
-  const pillExpert = document.getElementById('btn-mode-expert');
-  if (pillSimple && pillExpert) {
-    if (viewName === 'clean') {
-      pillSimple.classList.add('active');
-      pillExpert.classList.remove('active');
-    } else {
-      pillSimple.classList.remove('active');
-      pillExpert.classList.add('active');
-    }
-  }
+// Format bytes
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Mode Pill Button Handlers
-const pillSimple = document.getElementById('btn-mode-simple');
-const pillExpert = document.getElementById('btn-mode-expert');
-if (pillSimple) pillSimple.addEventListener('click', () => switchView('clean'));
-if (pillExpert) pillExpert.addEventListener('click', () => switchView('dashboard'));
+// View Navigation
+function switchView(viewName) {
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.content-panel').forEach(el => el.classList.remove('active'));
 
-// Attach Nav Listeners
-document.querySelectorAll('.nav-item').forEach(btn => {
+  const navBtn = document.querySelector(`.nav-link[data-view="${viewName}"]`);
+  if (navBtn) navBtn.classList.add('active');
+
+  const panelEl = document.getElementById(`view-${viewName}`);
+  if (panelEl) panelEl.classList.add('active');
+}
+
+document.querySelectorAll('.nav-link').forEach(btn => {
   btn.addEventListener('click', () => {
     switchView(btn.getAttribute('data-view'));
   });
 });
 
-// Simple Clean Recovery Button Handlers
-const simpleConsent = document.getElementById('simple-clean-consent');
-const btnSimpleClean = document.getElementById('btn-simple-clean');
-const simpleSuccessBox = document.getElementById('simple-clean-success');
+// Render Overview Findings
+function renderOverviewFindings() {
+  const container = document.getElementById('overview-findings-list');
+  if (!container) return;
+  container.innerHTML = '';
 
-if (simpleConsent && btnSimpleClean) {
-  simpleConsent.addEventListener('change', () => {
-    btnSimpleClean.disabled = !simpleConsent.checked;
-  });
+  if (FINDINGS_DATA.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+        No active storage issues or deleted-open file leaks detected.
+      </div>
+    `;
+    return;
+  }
 
-  btnSimpleClean.addEventListener('click', () => {
-    btnSimpleClean.disabled = true;
-    btnSimpleClean.textContent = "Safely Reclaiming Storage...";
-
-    setTimeout(() => {
-      btnSimpleClean.textContent = "✓ Cleaned 20.00 MB";
-      btnSimpleClean.style.background = "#10b981";
-      if (simpleSuccessBox) simpleSuccessBox.classList.remove('hidden');
-
-      const cleanNum = document.getElementById('simple-cleanable-num');
-      if (cleanNum) cleanNum.textContent = "0 B";
-
-      // Add audit history
-      AUDIT_DATA.unshift({
-        time: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        action: "SAFE_CLEAN_RECOVERY",
-        target: "/tmp/ghostdisk_test/ (Allowlisted Sandbox)",
-        approved: "YES (1-Click)",
-        delta: "+20.00 MB",
-        msg: "TOCTOU check passed. Unlinked safe temporary files. Reclaimed 20,971,520 Bytes."
-      });
-      renderAuditTable();
-    }, 500);
+  FINDINGS_DATA.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'finding-row';
+    row.innerHTML = `
+      <div class="finding-row-left">
+        <span class="tag-status ${f.severityClass}">${f.severity}</span>
+        <div class="finding-meta">
+          <h4>${f.title}</h4>
+          <p>${f.guidance || f.summary}</p>
+        </div>
+      </div>
+      <div class="finding-row-right">
+        <span class="finding-bytes">${f.relatedBytes}</span>
+        <button class="btn-subtle" onclick="openFindingModal(${f.id})">View Details</button>
+      </div>
+    `;
+    container.appendChild(row);
   });
 }
 
-// Render Findings List in View 2
+// Render Findings in View 3 (Deleted-Open Files)
 function renderFindingsList(filter = 'all') {
   const container = document.getElementById('findings-full-list');
   if (!container) return;
@@ -184,65 +166,39 @@ function renderFindingsList(filter = 'all') {
     return f.severity.toLowerCase() === filter.toLowerCase();
   });
 
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+        No findings matching filter '${filter}'.
+      </div>
+    `;
+    return;
+  }
+
   filtered.forEach(f => {
-    const card = document.createElement('div');
-    card.className = `finding-card ${f.severity.toLowerCase()}`;
-    card.onclick = () => openFindingModal(f.id);
-    card.innerHTML = `
-      <div class="finding-badge ${f.severityClass}">${f.severity} — ${f.relatedBytes}</div>
-      <div class="finding-main">
-        <h4>${f.title}</h4>
-        <p class="finding-summary">${f.summary}</p>
+    const row = document.createElement('div');
+    row.className = 'finding-row';
+    row.innerHTML = `
+      <div class="finding-row-left">
+        <span class="tag-status ${f.severityClass}">${f.severity}</span>
+        <div class="finding-meta">
+          <h4>${f.title}</h4>
+          <p>Process: <strong>${f.process}</strong> | File Descriptor: <code>fd ${f.fd}</code></p>
+        </div>
       </div>
-      <div class="finding-action">
-        <span class="badge-guidance">${f.guidance}</span>
-        <button class="btn-inspect">Inspect Evidence</button>
+      <div class="finding-row-right">
+        <span class="finding-bytes">${f.relatedBytes}</span>
+        <button class="btn-subtle" onclick="openFindingModal(${f.id})">View Details</button>
       </div>
     `;
-    container.appendChild(card);
+    container.appendChild(row);
   });
+
+  const badge = document.getElementById('findings-count-pill');
+  if (badge) badge.textContent = FINDINGS_DATA.length;
 }
 
-// Render Directory Tree Table
-function renderTreeTable() {
-  const tbody = document.getElementById('tree-table-body');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-
-  TREE_DATA.forEach(row => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><code>${row.path}</code></td>
-      <td><strong class="text-blue">${row.allocated}</strong></td>
-      <td>${row.apparent}</td>
-      <td><span class="tag-live">${row.type}</span></td>
-      <td><span style="font-family: var(--font-mono); font-size: 0.75rem;">dev: ${row.dev} | ino: ${row.ino}</span></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// Render Audit History
-function renderAuditTable() {
-  const tbody = document.getElementById('audit-table-body');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-
-  AUDIT_DATA.forEach(row => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><span style="font-family: var(--font-mono); font-size: 0.76rem;">${row.time}</span></td>
-      <td><code>${row.action}</code></td>
-      <td><code>${row.target}</code></td>
-      <td><span class="tag-approved">${row.approved}</span></td>
-      <td><strong class="text-emerald">${row.delta}</strong></td>
-      <td style="font-size: 0.78rem;">${row.msg}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// Filter buttons in Findings view
+// Filter button listeners
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -251,14 +207,85 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   });
 });
 
+// Render Storage Tree Table (View 2)
+function renderTreeTable(filterText = '') {
+  const tbody = document.getElementById('storage-tree-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  const list = TREE_DATA.filter(t => !filterText || t.path.toLowerCase().includes(filterText.toLowerCase()));
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">No matching paths found.</td></tr>`;
+    return;
+  }
+
+  list.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><code>${item.path}</code></td>
+      <td><strong>${item.allocated}</strong></td>
+      <td style="color: var(--text-secondary);">${item.apparent}</td>
+      <td><span class="tag-status info">${item.type}</span></td>
+      <td style="color: var(--text-muted); font-family: var(--font-mono);">${item.ino || '-'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Search input for Tree
+const searchInput = document.getElementById('analysis-search');
+if (searchInput) {
+  searchInput.addEventListener('input', (e) => {
+    renderTreeTable(e.target.value);
+  });
+}
+
+// Render Folders Table (View 4: Large Folders)
+function renderFoldersTable() {
+  const tbody = document.getElementById('folders-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  TREE_DATA.slice(0, 5).forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><code>${item.path}</code></td>
+      <td><strong>${item.allocated}</strong></td>
+      <td style="color: var(--text-secondary); font-size: 0.82rem;">${item.category || 'General Files'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Render Audit History Table (View 6)
+function renderAuditTable() {
+  const tbody = document.getElementById('audit-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  AUDIT_DATA.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted);">${row.time}</td>
+      <td><code>${row.action}</code></td>
+      <td><code>${row.target}</code></td>
+      <td><span class="tag-status safe">${row.status || 'OK'}</span></td>
+      <td><strong class="text-success">${row.delta}</strong></td>
+      <td style="font-size: 0.78rem; color: var(--text-secondary);">${row.msg}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 // Modal Logic
 function openFindingModal(id) {
   const finding = FINDINGS_DATA.find(f => f.id === id);
   if (!finding) return;
 
   const badge = document.getElementById('modal-severity-badge');
-  badge.className = finding.severityClass;
-  badge.textContent = `${finding.severity} (${finding.relatedBytes})`;
+  badge.className = `tag-status ${finding.severityClass}`;
+  badge.textContent = `${finding.severity} — ${finding.relatedBytes}`;
 
   document.getElementById('modal-finding-title').textContent = finding.title;
 
@@ -289,138 +316,90 @@ function closeFindingModal() {
   document.getElementById('finding-modal').classList.add('hidden');
 }
 
-// Scan Simulation Logic
-let isScanning = false;
-let scanTimer = null;
+// Safe Cleanup Logic
+const consentCheck = document.getElementById('consent-check');
+const btnExecuteRecovery = document.getElementById('btn-execute-recovery');
+const verificationCard = document.getElementById('recovery-verification-card');
 
+if (consentCheck && btnExecuteRecovery) {
+  consentCheck.addEventListener('change', () => {
+    btnExecuteRecovery.disabled = !consentCheck.checked;
+  });
+
+  btnExecuteRecovery.addEventListener('click', () => {
+    btnExecuteRecovery.disabled = true;
+    btnExecuteRecovery.textContent = "Revalidating & Unlinking...";
+
+    setTimeout(() => {
+      btnExecuteRecovery.textContent = "Cleaned Successfully";
+      btnExecuteRecovery.style.background = "#10b981";
+      btnExecuteRecovery.style.color = "#0c1017";
+      if (verificationCard) verificationCard.classList.remove('hidden');
+
+      const reclaimSize = document.getElementById('cleanup-reclaimable-size');
+      if (reclaimSize) reclaimSize.textContent = "0 B";
+
+      // Append to audit history
+      AUDIT_DATA.unshift({
+        time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        action: "SAFE_UNLINK",
+        target: "/tmp/ghostdisk_test/cache_cleanup_demo.tmp",
+        status: "SUCCESS",
+        delta: "+20.00 MB",
+        msg: "Verified unlink. Observed available storage increased by 20.00 MB."
+      });
+      renderAuditTable();
+    }, 500);
+  });
+}
+
+// Scan Action
 const btnStartScan = document.getElementById('btn-start-scan');
 const btnCancelScan = document.getElementById('btn-cancel-scan');
 const progressBanner = document.getElementById('scan-progress-banner');
 const scanStatusText = document.getElementById('scan-status-text');
 
-btnStartScan.addEventListener('click', () => {
-  if (isScanning) return;
-  isScanning = true;
+let isScanning = false;
+let scanTimer = null;
 
-  btnStartScan.disabled = true;
-  btnStartScan.style.opacity = '0.5';
-  scanStatusText.textContent = 'Scanning in background thread...';
-  progressBanner.classList.remove('hidden');
+if (btnStartScan) {
+  btnStartScan.addEventListener('click', () => {
+    if (isScanning) return;
+    isScanning = true;
+    btnStartScan.disabled = true;
+    if (scanStatusText) scanStatusText.textContent = "Scanning disk...";
+    if (progressBanner) progressBanner.classList.remove('hidden');
 
-  let pct = 0;
-  let count = 0;
-  const barFill = document.getElementById('progress-bar-fill');
-  const statEntries = document.getElementById('stat-entries');
+    const fill = document.getElementById('progress-bar-fill');
+    let pct = 0;
+    scanTimer = setInterval(() => {
+      pct += 25;
+      if (fill) fill.style.width = pct + '%';
 
-  scanTimer = setInterval(() => {
-    pct += 10;
-    count += 14200;
-    if (barFill) barFill.style.width = `${pct}%`;
-    if (statEntries) statEntries.textContent = count.toLocaleString();
-
-    if (pct >= 100) {
-      clearInterval(scanTimer);
-      finishScan();
-    }
-  }, 200);
-});
-
-btnCancelScan.addEventListener('click', () => {
-  if (!isScanning) return;
-  clearInterval(scanTimer);
-  progressBanner.classList.add('hidden');
-  scanStatusText.textContent = 'Scan cancelled cooperatively.';
-  btnStartScan.disabled = false;
-  btnStartScan.style.opacity = '1';
-  isScanning = false;
-});
-
-function finishScan() {
-  progressBanner.classList.add('hidden');
-  scanStatusText.textContent = '✓ Scan complete. Storage reconciled.';
-  btnStartScan.disabled = false;
-  btnStartScan.style.opacity = '1';
-  isScanning = false;
+      if (pct >= 100) {
+        clearInterval(scanTimer);
+        isScanning = false;
+        btnStartScan.disabled = false;
+        if (progressBanner) progressBanner.classList.add('hidden');
+        if (scanStatusText) scanStatusText.textContent = "Scan complete (Up to date)";
+      }
+    }, 250);
+  });
 }
 
-// Safe Recovery Consent & Unlink
-const consentCheck = document.getElementById('consent-check');
-const btnExecuteRecovery = document.getElementById('btn-execute-recovery');
-const verificationCard = document.getElementById('recovery-verification-card');
-
-consentCheck.addEventListener('change', () => {
-  btnExecuteRecovery.disabled = !consentCheck.checked;
-});
-
-btnExecuteRecovery.addEventListener('click', () => {
-  btnExecuteRecovery.disabled = true;
-  btnExecuteRecovery.textContent = "Revalidating TOCTOU & Unlinking...";
-
-  setTimeout(() => {
-    btnExecuteRecovery.textContent = "Unlinked Successfully";
-    btnExecuteRecovery.style.background = "#10b981";
-    verificationCard.classList.remove('hidden');
-
-    // Add entry to audit table
-    AUDIT_DATA.unshift({
-      time: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      action: "VERIFIED_UNLINK",
-      target: "/tmp/ghostdisk_test/cache_cleanup_demo.tmp",
-      approved: "YES (explicit)",
-      delta: "+20.00 MB",
-      msg: "Re-validated device 2050 / inode 884102. Observed delta: +20,971,520 Bytes."
-    });
-    renderAuditTable();
-  }, 600);
-});
-
-function resetRecoveryDemo() {
-  consentCheck.checked = false;
-  btnExecuteRecovery.disabled = true;
-  btnExecuteRecovery.textContent = "Execute Verified Unlink";
-  btnExecuteRecovery.style.background = "";
-  verificationCard.classList.add('hidden');
-}
-
-// JSON Diagnostic Export
-document.getElementById('btn-export-json').addEventListener('click', () => {
-  const exportData = {
-    application: "GhostDisk",
-    version: "1.0.0",
-    export_timestamp: new Date().toISOString(),
-    mount_point: "/",
-    filesystem_telemetry: {
-      total_bytes: 549755813888,
-      used_bytes: 348966092800,
-      available_bytes: 184683593728,
-      reserved_bytes: 16106127360
-    },
-    findings: FINDINGS_DATA,
-    audit_history: AUDIT_DATA
-  };
-
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
-  const downloadAnchor = document.createElement('a');
-  downloadAnchor.setAttribute("href", dataStr);
-  downloadAnchor.setAttribute("download", `ghostdisk_report_${Date.now()}.json`);
-  document.body.appendChild(downloadAnchor);
-  downloadAnchor.click();
-  downloadAnchor.remove();
-});
-
-// Format bytes into human readable string
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+if (btnCancelScan) {
+  btnCancelScan.addEventListener('click', () => {
+    if (scanTimer) clearInterval(scanTimer);
+    isScanning = false;
+    btnStartScan.disabled = false;
+    if (progressBanner) progressBanner.classList.add('hidden');
+    if (scanStatusText) scanStatusText.textContent = "Scan cancelled";
+  });
 }
 
 // Dynamic Live Data Loader
 function loadLiveData(data) {
   if (!data) return;
-  console.log("Loading live data:", data);
 
   if (data.findings && Array.isArray(data.findings)) {
     FINDINGS_DATA = data.findings;
@@ -429,214 +408,88 @@ function loadLiveData(data) {
     TREE_DATA = data.tree;
   }
 
-  // Update status banner
-  const statusEl = document.getElementById('scan-status-text');
-  if (statusEl) {
-    statusEl.innerHTML = `<span style="color: #10b981; font-weight: 600;">● Live Linux Data: ${data.mount_point || '/'}</span>`;
+  // Drive Header
+  const driveName = document.getElementById('overview-drive-name');
+  if (driveName) {
+    driveName.textContent = `${data.mount_point || '/'} (${data.device_name || 'Root Filesystem'} — ${data.filesystem_type || 'ext4'})`;
   }
 
-  // Update Telemetry Elements
+  const mountSel = document.getElementById('mount-select');
+  if (mountSel && mountSel.options && mountSel.options[0]) {
+    mountSel.options[0].textContent = `${data.mount_point || '/'} (${data.device_name || 'Main Drive'}) — ${formatBytes(data.total_bytes)}`;
+  }
+
+  const statusText = document.getElementById('scan-status-text');
+  if (statusText) {
+    statusText.innerHTML = `<span style="color: var(--color-success); font-weight: 600;">● Live: ${data.mount_point || '/'}</span>`;
+  }
+
+  // Storage Numbers
   const totalUsed = data.used_bytes || 0;
-  const crawled = data.crawled_bytes || 0;
+  const totalCap = data.total_bytes || 0;
+  const avail = data.available_bytes || (totalCap > totalUsed ? totalCap - totalUsed : 0);
   const deleted = data.deleted_open_bytes || 0;
   const reserved = data.reserved_bytes || 0;
   const unresolved = data.unresolved_bytes || 0;
+  const crawled = data.crawled_bytes || 0;
 
-  const donutTotal = document.getElementById('donut-total-used');
-  if (donutTotal) donutTotal.textContent = formatBytes(totalUsed);
+  const elUsed = document.getElementById('overview-used');
+  if (elUsed) elUsed.textContent = formatBytes(totalUsed);
 
-  const valAccounted = document.getElementById('val-accounted');
-  if (valAccounted) valAccounted.textContent = formatBytes(crawled);
+  const elAvail = document.getElementById('overview-avail');
+  if (elAvail) elAvail.textContent = formatBytes(avail);
 
-  const valDeleted = document.getElementById('val-deleted');
-  if (valDeleted) valDeleted.textContent = formatBytes(deleted);
+  const elTotal = document.getElementById('overview-total');
+  if (elTotal) elTotal.textContent = formatBytes(totalCap);
 
-  const valReserved = document.getElementById('val-reserved');
-  if (valReserved) valReserved.textContent = formatBytes(reserved);
+  // Usage Bar & Percentages
+  const usedPct = totalCap > 0 ? (100.0 * totalUsed / totalCap).toFixed(1) : 48;
+  const barFill = document.getElementById('overview-bar-fill');
+  if (barFill) barFill.style.width = `${usedPct}%`;
 
-  const valUnresolved = document.getElementById('val-unresolved');
-  if (valUnresolved) valUnresolved.textContent = formatBytes(unresolved);
+  const barUsedPct = document.getElementById('overview-bar-used-pct');
+  if (barUsedPct) barUsedPct.textContent = `${usedPct}%`;
 
-  const valFsReported = document.getElementById('val-fs-reported');
-  if (valFsReported) valFsReported.textContent = formatBytes(totalUsed);
+  const legendUsed = document.getElementById('overview-legend-used');
+  if (legendUsed) legendUsed.textContent = formatBytes(totalUsed);
 
-  const valCrawlTotal = document.getElementById('val-crawl-total');
-  if (valCrawlTotal) valCrawlTotal.textContent = formatBytes(crawled);
+  const legendAvail = document.getElementById('overview-legend-avail');
+  if (legendAvail) legendAvail.textContent = formatBytes(avail);
 
-  const valLeakedOpen = document.getElementById('val-leaked-open');
-  if (valLeakedOpen) valLeakedOpen.textContent = formatBytes(deleted);
+  // Compact Storage Analysis Section
+  const statScanned = document.getElementById('stat-scanned-val');
+  if (statScanned) statScanned.textContent = formatBytes(crawled);
 
-  const pillCount = document.getElementById('findings-count-pill');
-  if (pillCount) pillCount.textContent = FINDINGS_DATA.length;
+  const statDeleted = document.getElementById('stat-deleted-val');
+  if (statDeleted) statDeleted.textContent = formatBytes(deleted);
 
-  // Donut Arc calculation (circumference = 440)
-  const sum = (crawled + deleted + reserved + unresolved) || totalUsed || 1;
-  const dAccounted = Math.round((crawled / sum) * 440);
-  const dDeleted = Math.round((deleted / sum) * 440);
-  const dReserved = Math.round((reserved / sum) * 440);
-  const dUnresolved = Math.max(0, 440 - (dAccounted + dDeleted + dReserved));
+  const statReserved = document.getElementById('stat-reserved-val');
+  if (statReserved) statReserved.textContent = formatBytes(reserved);
 
-  const segAcc = document.querySelector('.seg-accounted');
-  const segDel = document.querySelector('.seg-deleted');
-  const segRes = document.querySelector('.seg-reserved');
-  const segUnres = document.querySelector('.seg-unresolved');
+  const statUnexplained = document.getElementById('stat-unexplained-val');
+  if (statUnexplained) statUnexplained.textContent = formatBytes(unresolved);
 
-  if (segAcc) {
-    segAcc.setAttribute('stroke-dasharray', `${dAccounted} 440`);
-    segAcc.setAttribute('stroke-dashoffset', '0');
-  }
-  if (segDel) {
-    segDel.setAttribute('stroke-dasharray', `${dDeleted} 440`);
-    segDel.setAttribute('stroke-dashoffset', `-${dAccounted}`);
-  }
-  if (segRes) {
-    segRes.setAttribute('stroke-dasharray', `${dReserved} 440`);
-    segRes.setAttribute('stroke-dashoffset', `-${dAccounted + dDeleted}`);
-  }
-  if (segUnres) {
-    segUnres.setAttribute('stroke-dasharray', `${dUnresolved} 440`);
-    segUnres.setAttribute('stroke-dashoffset', `-${dAccounted + dDeleted + dReserved}`);
-  }
+  // Technical Accordion Values
+  const techCrawl = document.getElementById('tech-crawl-total');
+  if (techCrawl) techCrawl.textContent = formatBytes(crawled);
 
-  // Update Simple Clean Mode Elements (Zero OS Theory)
-  const totalCap = data.total_bytes || 0;
-  const simpleUsed = document.getElementById('simple-stat-used');
-  if (simpleUsed) simpleUsed.textContent = formatBytes(totalUsed);
-  const simpleFree = document.getElementById('simple-stat-free');
-  if (simpleFree) simpleFree.textContent = formatBytes(data.available_bytes || 0);
-  const simpleTotal = document.getElementById('simple-stat-total');
-  if (simpleTotal) simpleTotal.textContent = formatBytes(totalCap);
+  const techDeleted = document.getElementById('tech-deleted-open');
+  if (techDeleted) techDeleted.textContent = formatBytes(deleted);
 
-  const simpleBar = document.getElementById('simple-bar-fill');
-  if (simpleBar) {
-    const pct = totalCap > 0 ? (100.0 * totalUsed / totalCap).toFixed(1) : 48;
-    simpleBar.style.width = `${pct}%`;
-  }
+  const techRes = document.getElementById('tech-reserved');
+  if (techRes) techRes.textContent = formatBytes(reserved);
 
-  const simpleCardNormal = document.getElementById('simple-card-normal');
-  if (simpleCardNormal) simpleCardNormal.textContent = formatBytes(totalUsed);
-  const simpleCardGhost = document.getElementById('simple-card-ghost');
-  if (simpleCardGhost) simpleCardGhost.textContent = formatBytes(deleted);
-  const simpleGhostBadge = document.getElementById('simple-ghost-badge');
-  if (simpleGhostBadge) simpleGhostBadge.textContent = formatBytes(deleted);
-  const simpleCardReserve = document.getElementById('simple-card-reserve');
-  if (simpleCardReserve) simpleCardReserve.textContent = formatBytes(reserved);
+  const techUnres = document.getElementById('tech-unresolved');
+  if (techUnres) techUnres.textContent = formatBytes(unresolved);
 
-  // Simple Health Title
-  const healthTitle = document.getElementById('simple-health-title');
-  const healthSub = document.getElementById('simple-health-subtitle');
-  if (healthTitle && healthSub) {
-    if (deleted > 100 * 1024 * 1024) {
-      healthTitle.textContent = "Storage Can Be Reclaimed";
-      healthSub.textContent = `Found ${formatBytes(deleted)} in ghost files held by background services.`;
-    } else {
-      healthTitle.textContent = "Your Linux Disk is Healthy";
-      healthSub.textContent = `Using ${formatBytes(totalUsed)} of ${formatBytes(totalCap)}. No runaway storage leaks found.`;
-    }
-  }
-
-  // Simple Top Folders Table
-  const simpleTableBody = document.getElementById('simple-folder-tbody');
-  if (simpleTableBody && TREE_DATA && TREE_DATA.length > 0) {
-    simpleTableBody.innerHTML = '';
-    TREE_DATA.slice(0, 4).forEach(item => {
-      let cat = "User Files & App Data";
-      if (item.path.startsWith('/usr')) cat = "Installed Software & System Libraries";
-      else if (item.path.startsWith('/var')) cat = "System Logs & Application State";
-      else if (item.path.startsWith('/home')) cat = "Your Personal Documents & Downloads";
-      else if (item.path.startsWith('/tmp')) cat = "Temporary Cache Files (Safe)";
-
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><code>${item.path}</code></td>
-        <td><strong>${item.allocated}</strong></td>
-        <td style="color: var(--text-secondary); font-size: 0.84rem;">${cat}</td>
-      `;
-      simpleTableBody.appendChild(tr);
-    });
-  }
-
-  // Update Math Formula Card
-  const mathFs = document.getElementById('math-fs-used');
-  if (mathFs) mathFs.textContent = formatBytes(totalUsed);
-  const mathScan = document.getElementById('math-scan-alloc');
-  if (mathScan) mathScan.textContent = formatBytes(crawled);
-  const mathGap = document.getElementById('math-raw-gap');
-  if (mathGap) mathGap.textContent = formatBytes(Math.abs(totalUsed - crawled));
-
-  const recDel = document.getElementById('reconcile-deleted');
-  if (recDel) recDel.textContent = `- ${formatBytes(deleted)}`;
-  const recRes = document.getElementById('reconcile-reserve');
-  if (recRes) recRes.textContent = `- ${formatBytes(reserved)}`;
-  const recUnres = document.getElementById('reconcile-unresolved');
-  if (recUnres) recUnres.textContent = formatBytes(unresolved);
-
-  // Update 4 Metric Cards
-  const cardCap = document.getElementById('metric-total-capacity');
-  if (cardCap) cardCap.textContent = formatBytes(totalCap);
-
-  const cardUsed = document.getElementById('metric-raw-used');
-  if (cardUsed) cardUsed.textContent = formatBytes(totalUsed);
-  const cardUsedHint = document.getElementById('metric-used-hint');
-  if (cardUsedHint) {
-    cardUsedHint.textContent = totalCap > 0 ? `${(100.0 * totalUsed / totalCap).toFixed(1)}% of device` : "0% of device";
-  }
-
-  const cardAvail = document.getElementById('metric-user-avail');
-  if (cardAvail) cardAvail.textContent = formatBytes(data.available_bytes || 0);
-
-  const cardLeaks = document.getElementById('metric-deleted-leaks');
-  if (cardLeaks) cardLeaks.textContent = formatBytes(deleted);
-  const cardLeaksHint = document.getElementById('metric-deleted-hint');
-  if (cardLeaksHint) {
-    cardLeaksHint.textContent = `${FINDINGS_DATA.filter(f => f.title && f.title.toLowerCase().includes('deleted')).length} leak descriptors found`;
-  }
-
-  // Update Mount Option in Header
-  const mountSel = document.getElementById('mount-select');
-  if (mountSel && mountSel.options && mountSel.options[0]) {
-    mountSel.options[0].textContent = `${data.mount_point || '/'} (${data.device_name || 'System Mount'}) — ${formatBytes(totalCap)} ${data.filesystem_type || 'ext4'}`;
-  }
-
-  // Update Top Findings Preview Container on Dashboard
-  const dashContainer = document.getElementById('dashboard-findings-container');
-  if (dashContainer && FINDINGS_DATA.length > 0) {
-    dashContainer.innerHTML = '';
-    FINDINGS_DATA.slice(0, 3).forEach((f) => {
-      const card = document.createElement('div');
-      card.className = `finding-card ${f.severity.toLowerCase()}`;
-      card.onclick = () => openFindingModal(f.id);
-      card.innerHTML = `
-        <div class="finding-badge ${f.severityClass}">${f.severity} — ${f.relatedBytes}</div>
-        <div class="finding-main">
-          <h4>${f.title}</h4>
-          <p class="finding-summary">${f.summary || f.title}</p>
-        </div>
-        <div class="finding-action">
-          <span class="badge-guidance">${f.guidance || 'Guidance: Safe Inspection'}</span>
-          <button class="btn-inspect">Inspect Evidence</button>
-        </div>
-      `;
-      dashContainer.appendChild(card);
-    });
-  }
-
-  // Audit entry
-  AUDIT_DATA.unshift({
-    time: new Date().toISOString().replace('T', ' ').substring(0, 19),
-    action: "LIVE_DATA_LOADED",
-    target: data.mount_point || "/",
-    approved: "YES",
-    delta: formatBytes(deleted),
-    msg: `Loaded live Linux telemetry: ${data.filesystem_type || 'ext4'} (${formatBytes(totalUsed)} used, ${FINDINGS_DATA.length} findings)`
-  });
-
+  renderOverviewFindings();
   renderFindingsList();
   renderTreeTable();
+  renderFoldersTable();
   renderAuditTable();
 }
 
-// File Upload Handler for manual JSON import
+// File Upload Handler
 const inputLoadJson = document.getElementById('input-load-json');
 if (inputLoadJson) {
   inputLoadJson.addEventListener('change', (e) => {
@@ -655,18 +508,41 @@ if (inputLoadJson) {
   });
 }
 
-// Auto-check for live_data.json on server
+// Export JSON
+const btnExport = document.getElementById('btn-export-json');
+if (btnExport) {
+  btnExport.addEventListener('click', () => {
+    const exportData = {
+      application: "GhostDisk",
+      version: "1.0.0",
+      export_timestamp: new Date().toISOString(),
+      findings: FINDINGS_DATA,
+      audit_history: AUDIT_DATA
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `ghostdisk_report_${Date.now()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  });
+}
+
+// Initialize on page load
 fetch('live_data.json')
   .then(res => {
     if (res.ok) return res.json();
-    throw new Error('No live_data.json present');
+    throw new Error('No live_data.json');
   })
   .then(data => {
     loadLiveData(data);
   })
   .catch(() => {
-    // Fallback to demo data
+    renderOverviewFindings();
     renderFindingsList();
     renderTreeTable();
+    renderFoldersTable();
     renderAuditTable();
   });
