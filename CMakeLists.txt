@@ -12,13 +12,15 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Core library for Member 1, 2 and 3 modules
+# Core library for Member 1, 2, 3 and 4 modules
 add_library(ghostdisk_core
     src/fs_scanner.cpp
     src/directory_scanner.cpp
     src/proc_inspector.cpp
     src/discrepancy_analyzer.cpp
     src/finding_analyzer.cpp
+    src/verification_service.cpp
+    src/recovery_coordinator.cpp
 )
 
 target_include_directories(ghostdisk_core PUBLIC
@@ -39,3 +41,7 @@ add_test(NAME TestProcInspector COMMAND test_proc_inspector)
 add_executable(test_analyzer tests/test_analyzer.cpp)
 target_link_libraries(test_analyzer PRIVATE ghostdisk_core)
 add_test(NAME TestAnalyzer COMMAND test_analyzer)
+
+add_executable(test_recovery tests/test_recovery.cpp)
+target_link_libraries(test_recovery PRIVATE ghostdisk_core)
+add_test(NAME TestRecovery COMMAND test_recovery)

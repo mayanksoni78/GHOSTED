@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "=========================================="
-echo " GhostDisk - Test Suite (Member 1, 2 & 3)"
+echo " GhostDisk - Test Suite (Member 1, 2, 3 & 4)"
 echo "=========================================="
 
 mkdir -p build
@@ -11,7 +11,7 @@ cmake ..
 cmake --build .
 
 echo ""
-echo ">>> Running C++ Unit Tests (T1, T4, Inode Deduplication, Mock Proc, T8 Analyzer, Cancellation)..."
+echo ">>> Running C++ Unit Tests (T1, T4, Inode Deduplication, Mock Proc, T8 Analyzer, T6/T7 Recovery)..."
 ctest --output-on-failure
 
 echo ""
@@ -52,6 +52,10 @@ kill -TERM "$WORKLOAD_PID" 2>/dev/null || true
 wait "$WORKLOAD_PID" 2>/dev/null || true
 rm -f "$WORKLOAD_LOG"
 
+echo ""
+echo ">>> Running Member 4 Safe Recovery Suite (T6 & T7)..."
+./test_recovery
+
 echo "=========================================="
-echo " ALL WORKLOAD TESTS PASSED SUCCESSFULLY!"
+echo " ALL WORKLOAD & RECOVERY TESTS PASSED!"
 echo "=========================================="

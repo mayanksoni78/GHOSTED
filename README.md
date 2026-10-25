@@ -11,7 +11,7 @@
 | **Member 1** | **OS Telemetry & Directory Crawler Engineer** | `FsScanner`, `DirectoryScanner`, `types.hpp` | Completed |
 | **Member 2** | **Linux Process & `/proc` Detective Engineer** | `ProcInspector`, Open-FD detection, T2/T9 | Completed |
 | **Member 3** | **Discrepancy & Finding Analysis Engine** | `DiscrepancyAnalyzer`, `FindingAnalyzer`, `analysis_types.hpp` | Completed |
-| Member 4 | Safe Recovery Coordinator & Verification Service | `RecoveryCoordinator`, `VerificationService` | Planned |
+| **Member 4** | **Safe Recovery Coordinator & Verification Service** | `RecoveryCoordinator`, `VerificationService` | Completed |
 | Member 5 | UI, Persistence & Architecture Lead | `MainWindow` (Qt Widgets), `SQLiteRepository` | Planned |
 
 ---
@@ -88,6 +88,32 @@
 
 ---
 
+## Member 4 Deliverables
+
+### 1. `RecoveryCoordinator` (`include/ghostdisk/recovery_coordinator.hpp`, `src/recovery_coordinator.cpp`)
+- **Two-Stage Safe Recovery Workflow**:
+  - **Stage 1 (Read-Only Preview)**: Inspects target via `lstat()`, verifies allowlist eligibility, captures device/inode/mtime/size, estimates reclaimable bytes, and returns `RecoveryPreview` without modifying data.
+  - **Stage 2 (Confirmed Execution)**: Requires explicit `user_confirmed == true`. Rejects directories, symlinks, and paths outside allowlisted roots.
+- **Strict Allowlist Enforcement**:
+  - Resolves canonical paths to prevent directory traversal (`..`) or symlink redirects escaping approved roots (`~/.cache/ghostdisk_test/`, `/tmp/ghostdisk_test/`).
+- **TOCTOU Defense (Time-Of-Check to Time-Of-Use)**:
+  - Immediately before unlinking, re-validates identity: device ID (`st_dev`), inode (`st_ino`), size (`st_size`), modification timestamp (`st_mtime`), and non-symlink status. Aborts immediately if the file was modified, swapped, or replaced.
+- **Zero Shell Invocation**:
+  - Executes deletions strictly via the direct POSIX `unlink()` system call. Never invokes `system('rm ...')` or shell interpreters.
+- **No Automatic Process Killing**:
+  - Protects running processes; active open-file locks are provided with operator restart instructions rather than process termination signals.
+
+### 2. `VerificationService` (`include/ghostdisk/verification_service.hpp`, `src/verification_service.cpp`)
+- **Dynamic Mount Point Resolution**:
+  - Resolves the filesystem volume hosting any target path by matching against active mounts.
+- **Before-and-After Telemetry**:
+  - Samples available space (`available_bytes`) immediately prior to and directly following the unlink operation.
+- **Honest Observed Delta Accounting**:
+  - Computes `observed_delta_bytes = available_bytes_after - available_bytes_before`.
+  - Explains discrepancies in the audit log when observed space change differs from estimated file size (due to concurrent writes, delayed allocation, or other held descriptors).
+
+---
+
 ## Controlled Tests Matrix
 
 | Test ID | Scenario | Module | Verified Behavior |
@@ -96,6 +122,8 @@
 | **T2** | Controlled deleted-open file | `ProcInspector` + Workload | Detects unlinked 10 MB file with PID and deduplicated bytes. |
 | **T3** | Inaccessible directory handling | `DirectoryScanner` | Gracefully skips `000` permission subtrees into `skipped_entries`. |
 | **T4** | Symlink safety & non-traversal | `DirectoryScanner` | Symlinks marked as `EntryType::Symlink` and not followed into loops. |
+| **T6** | Allowlisted cache cleanup & verification | `RecoveryCoordinator`, `VerificationService` | Creates 20 MB file in allowlist, generates preview, unlinks with confirmation, and verifies observed capacity delta. |
+| **T7** | TOCTOU race condition abort | `RecoveryCoordinator` | Aborts safely when target is modified, deleted, or swapped between preview and execution. |
 | **T8** | Scope, Discrepancy & Finding verification | `DiscrepancyAnalyzer`, `FindingAnalyzer` | Validates signed math, attribution deduplication, tolerance, and caveats across 17 scenarios. |
 | **T9** | Unprivileged process inspection | `ProcInspector` | Permission-denied PIDs cleanly logged into `restricted_pids`. |
 
@@ -105,13 +133,13 @@
 
 ### Linux (Ubuntu 20.04/22.04+)
 ```bash
-# Using CMake and CTest
+# Using CMake and CTest (Runs all tests T1 through T9)
 mkdir build && cd build
 cmake ..
 cmake --build .
 ctest --output-on-failure
 
-# Or using the automated test suite runner (runs T1, T2, T3, T4, T8, T9)
+# Or using the automated test suite runner
 chmod +x scripts/run_linux_tests.sh
 ./scripts/run_linux_tests.sh
 ```
@@ -129,4 +157,8 @@ g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp src/proc_i
 # Member 3 Tests (Discrepancy & Finding Analyzer)
 g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp src/proc_inspector.cpp src/discrepancy_analyzer.cpp src/finding_analyzer.cpp tests/test_analyzer.cpp -o test_analyzer
 ./test_analyzer
+
+# Member 4 Tests (Recovery Coordinator & Verification Service)
+g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp src/proc_inspector.cpp src/discrepancy_analyzer.cpp src/finding_analyzer.cpp src/verification_service.cpp src/recovery_coordinator.cpp tests/test_recovery.cpp -o test_recovery
+./test_recovery
 ```
