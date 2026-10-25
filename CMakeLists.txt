@@ -45,3 +45,7 @@ add_test(NAME TestAnalyzer COMMAND test_analyzer)
 add_executable(test_recovery tests/test_recovery.cpp)
 target_link_libraries(test_recovery PRIVATE ghostdisk_core)
 add_test(NAME TestRecovery COMMAND test_recovery)
+
+# Standalone CLI application for Linux diagnostics
+add_executable(ghostdisk_cli src/cli_main.cpp)
+target_link_libraries(ghostdisk_cli PRIVATE ghostdisk_core)
