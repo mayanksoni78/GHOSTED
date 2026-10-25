@@ -10,7 +10,7 @@
 | :--- | :--- | :--- | :--- |
 | **Member 1** | **OS Telemetry & Directory Crawler Engineer** | `FsScanner`, `DirectoryScanner`, `types.hpp` | Completed |
 | **Member 2** | **Linux Process & `/proc` Detective Engineer** | `ProcInspector`, Open-FD detection, T2/T9 | Completed |
-| Member 3 | Discrepancy & Finding Analysis Engine | `FindingAnalyzer`, `DiscrepancyAnalyzer` | Planned |
+| **Member 3** | **Discrepancy & Finding Analysis Engine** | `DiscrepancyAnalyzer`, `FindingAnalyzer`, `analysis_types.hpp` | Completed |
 | Member 4 | Safe Recovery Coordinator & Verification Service | `RecoveryCoordinator`, `VerificationService` | Planned |
 | Member 5 | UI, Persistence & Architecture Lead | `MainWindow` (Qt Widgets), `SQLiteRepository` | Planned |
 
@@ -54,6 +54,40 @@
 
 ---
 
+## Member 3 Deliverables
+
+### 1. `DiscrepancyAnalyzer` (`include/ghostdisk/discrepancy_analyzer.hpp`, `src/discrepancy_analyzer.cpp`)
+- **Scope Classification & Boundary Verification**:
+  - Distinguishes scan coverage: `WholeMount`, `PartOfMount`, `OutsideMount`, and `Unknown`.
+  - Normalizes root paths and guards against prefix collision traps (e.g., `/home` vs `/homework`).
+  - Sets `comparable = false` when scope is partial, when cross-device boundaries are enabled, or when scans are cancelled.
+- **Signed Discrepancy Arithmetic**:
+  - Computes `gap_bytes = (int64_t)fs_used_bytes - (int64_t)scan_allocated_bytes`.
+  - Distinguishes negative gaps (`ScanExceedsFilesystem`) triggered by concurrent writes, hard links, or sparse/uncommitted blocks.
+- **Device-Scoped Evidence Attribution**:
+  - Filters deleted-open findings strictly by device ID (`st_dev`) so unlinked files on different filesystems do not skew calculations.
+  - Formulates attribution: `explained_bytes = min(max(gap, 0), deleted_open_bytes)`.
+  - Formulates remainder: `unresolved_bytes = max(gap, 0) - explained_bytes`.
+- **Noise Tolerance & Accounting Caveats**:
+  - Applies configurable noise floor (`tolerance_bytes`, `tolerance_fraction`) to ignore normal filesystem metadata/journal fluctuations.
+  - Keeps superuser reserve (`reserved_or_unavailable_bytes`) isolated from user-space discrepancy gaps.
+  - Captures coverage limitations (skipped directories, restricted PIDs) as explicit caveats.
+
+### 2. `FindingAnalyzer` (`include/ghostdisk/finding_analyzer.hpp`, `src/finding_analyzer.cpp`, `analysis_types.hpp`)
+- **Four-Pillar Finding Architecture**:
+  - `confirmed_facts`: Strictly direct measurements (exact byte counts, PIDs, file descriptors, inodes).
+  - `likely_explanation`: Plausible OS-level interpretation, clearly designated as an interpretation.
+  - `limitations`: Inaccessible paths, uninspected processes, scan races, and mount scope boundaries.
+  - `recommended_next_step`: Safe, non-destructive operator guidance (e.g. reload or restart daemon); never instructs automated deletion.
+- **Strict Safety Invariant**: Never classifies unexplained space as "junk" or "safe to delete". Unresolved gaps remain flagged as investigation targets.
+- **Risk & Severity Classification**:
+  - Assigns severity (`Info`, `Warning`, `Critical`) based on byte scale and remaining filesystem headroom (escalates to `Critical` if user-available space < 10%).
+  - Assigns `RiskLevel` (`Low`, `Medium`, `High`) ensuring user-actionable clarity.
+- **JSON Evidence Serialization**:
+  - Built-in `json_escape` utility producing RFC 8259-compliant JSON snippets (`evidence_json`) ready for Member 5 SQLite persistence.
+
+---
+
 ## Controlled Tests Matrix
 
 | Test ID | Scenario | Module | Verified Behavior |
@@ -62,6 +96,7 @@
 | **T2** | Controlled deleted-open file | `ProcInspector` + Workload | Detects unlinked 10 MB file with PID and deduplicated bytes. |
 | **T3** | Inaccessible directory handling | `DirectoryScanner` | Gracefully skips `000` permission subtrees into `skipped_entries`. |
 | **T4** | Symlink safety & non-traversal | `DirectoryScanner` | Symlinks marked as `EntryType::Symlink` and not followed into loops. |
+| **T8** | Scope, Discrepancy & Finding verification | `DiscrepancyAnalyzer`, `FindingAnalyzer` | Validates signed math, attribution deduplication, tolerance, and caveats across 17 scenarios. |
 | **T9** | Unprivileged process inspection | `ProcInspector` | Permission-denied PIDs cleanly logged into `restricted_pids`. |
 
 ---
@@ -76,18 +111,22 @@ cmake ..
 cmake --build .
 ctest --output-on-failure
 
-# Or using the automated test suite runner (runs T1, T2, T3, T4, T9)
+# Or using the automated test suite runner (runs T1, T2, T3, T4, T8, T9)
 chmod +x scripts/run_linux_tests.sh
 ./scripts/run_linux_tests.sh
 ```
 
 ### Direct Compilation with g++
 ```bash
-# Member 1 Tests
+# Member 1 Tests (Scanners)
 g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp tests/test_scanners.cpp -o test_scanners
 ./test_scanners
 
-# Member 2 Tests
+# Member 2 Tests (Proc Inspector)
 g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp src/proc_inspector.cpp tests/test_proc_inspector.cpp -o test_proc_inspector
 ./test_proc_inspector
+
+# Member 3 Tests (Discrepancy & Finding Analyzer)
+g++ -std=c++17 -Iinclude src/fs_scanner.cpp src/directory_scanner.cpp src/proc_inspector.cpp src/discrepancy_analyzer.cpp src/finding_analyzer.cpp tests/test_analyzer.cpp -o test_analyzer
+./test_analyzer
 ```

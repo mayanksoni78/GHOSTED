@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "=========================================="
-echo " GhostDisk - Test Suite (Member 1 & 2)"
+echo " GhostDisk - Test Suite (Member 1, 2 & 3)"
 echo "=========================================="
 
 mkdir -p build
@@ -11,7 +11,7 @@ cmake ..
 cmake --build .
 
 echo ""
-echo ">>> Running C++ Unit Tests (T1, T4, Inode Deduplication, Mock Proc, Cancellation)..."
+echo ">>> Running C++ Unit Tests (T1, T4, Inode Deduplication, Mock Proc, T8 Analyzer, Cancellation)..."
 ctest --output-on-failure
 
 echo ""
