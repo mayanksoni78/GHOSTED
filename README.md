@@ -39,18 +39,29 @@ cmake -B build
 cmake --build build -j$(nproc)
 ```
 
-### 2. Run Real-Time Storage Diagnostics
-Scan the root mount (`/`) and export live diagnostic telemetry:
-```bash
-sudo ./build/ghostdisk_cli / --export-web
-```
-*(Running with `sudo` is recommended so GhostDisk can inspect `/proc/<pid>/fd/*` descriptors across all system services without permission limitations).*
+### 2. Run Real-Time Storage Diagnostics & Web Dashboard
 
-### 3. Launch Interactive Dashboard in Browser
+You have two simple ways to inspect Linux storage and see live UI changes:
+
+#### Option A: 1-Click Live Web Server (Recommended)
+Launch the built-in live server:
+```bash
+sudo python3 web_server.py 8080
+```
+Open **`http://localhost:8080`** in your browser. Clicking **"Scan Disk"** inside the web dashboard directly triggers the C++ diagnostic engine on Linux and instantly displays live capacity, active process leaks, and 4-pillar findings!
+
+#### Option B: Standalone CLI Scan & Static Server
+Scan the root mount (`/`) and auto-export live telemetry:
+```bash
+sudo ./build/ghostdisk_cli /
+```
+*(GhostDisk automatically locates `web_ui/` and exports both `live_data.json` and `live_data.js`).*
+
+Then view in browser:
 ```bash
 python3 -m http.server 8080 --directory web_ui
 ```
-Open **`http://localhost:8080`** in your browser. The dashboard automatically detects `live_data.json` and renders your real Linux storage telemetry, capacity donut chart, active process leaks, 4-pillar evidence cards, and safe recovery zone.
+*(Or simply double-click `web_ui/index.html` to open directly in any browser — offline `file://` mode is fully supported!)*
 
 ---
 

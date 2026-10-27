@@ -35,9 +35,58 @@ std::string escape_json(const std::string& s) {
     return FindingAnalyzer::json_escape(s);
 }
 
+#include <filesystem>
+#if defined(__linux__) || defined(__unix__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
+namespace fs = std::filesystem;
+
+static fs::path resolve_web_ui_dir(const char* argv0) {
+    std::vector<fs::path> candidates;
+
+    const char* env_path = std::getenv("GHOSTDISK_WEB_UI");
+    if (env_path && *env_path) {
+        candidates.push_back(fs::path(env_path));
+    }
+
+    candidates.push_back(fs::path("web_ui"));
+    candidates.push_back(fs::path("..") / "web_ui");
+    candidates.push_back(fs::path("../..") / "web_ui");
+
+    try {
+        if (argv0) {
+            fs::path exe_dir = fs::absolute(argv0).parent_path();
+            candidates.push_back(exe_dir / "web_ui");
+            candidates.push_back(exe_dir / ".." / "web_ui");
+            candidates.push_back(exe_dir / ".." / ".." / "web_ui");
+        }
+#if defined(__linux__)
+        char buf[4096];
+        ssize_t len = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (len != -1) {
+            buf[len] = '\0';
+            fs::path exe_path(buf);
+            fs::path exe_dir = exe_path.parent_path();
+            candidates.push_back(exe_dir / "web_ui");
+            candidates.push_back(exe_dir / ".." / "web_ui");
+            candidates.push_back(exe_dir / ".." / ".." / "web_ui");
+        }
+#endif
+    } catch (...) {}
+
+    for (const auto& candidate : candidates) {
+        std::error_code ec;
+        if (fs::is_directory(candidate, ec)) {
+            return fs::canonical(candidate, ec);
+        }
+    }
+    return "";
+}
+
 int main(int argc, char* argv[]) {
     std::string target_path = "/";
-    bool export_web = false;
+    bool export_web = true; // Enabled by default so UI always gets live updates
+    bool no_web = false;
     std::string export_json_path;
 
     for (int i = 1; i < argc; ++i) {
@@ -47,15 +96,24 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (arg == "-w" || arg == "--export-web") {
             export_web = true;
+        } else if (arg == "--no-web") {
+            no_web = true;
         } else if ((arg == "-o" || arg == "--export-json") && i + 1 < argc) {
             export_json_path = argv[++i];
         } else if (!arg.empty() && arg[0] != '-') {
             target_path = arg;
         }
     }
+    (void)export_web;
 
-    if (export_web && export_json_path.empty()) {
-        export_json_path = "web_ui/live_data.json";
+    fs::path resolved_web_ui = resolve_web_ui_dir(argv[0]);
+
+    if (!no_web && export_json_path.empty()) {
+        if (!resolved_web_ui.empty()) {
+            export_json_path = (resolved_web_ui / "live_data.json").string();
+        } else {
+            export_json_path = "web_ui/live_data.json";
+        }
     }
 
     std::cout << "\033[1;36m====================================================================\033[0m\n";
@@ -145,105 +203,140 @@ int main(int argc, char* argv[]) {
         std::cout << "      * Guidance: " << f.recommended_next_step << "\n\n";
     }
 
-    // 5. Export JSON if requested
+    // 5. Export JSON & live_data.js if requested / detected
     if (!export_json_path.empty()) {
+        std::ostringstream json_ss;
+        json_ss << "{\n"
+            << "  \"is_live\": true,\n"
+            << "  \"timestamp\": \"" << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << "\",\n"
+            << "  \"mount_point\": \"" << escape_json(fs.mount_point) << "\",\n"
+            << "  \"device_name\": \"" << escape_json(fs.device_name) << "\",\n"
+            << "  \"filesystem_type\": \"" << escape_json(fs.filesystem_type) << "\",\n"
+            << "  \"total_bytes\": " << fs.total_bytes << ",\n"
+            << "  \"used_bytes\": " << fs.used_bytes << ",\n"
+            << "  \"available_bytes\": " << fs.available_bytes << ",\n"
+            << "  \"reserved_bytes\": " << fs.reserved_or_unavailable_bytes << ",\n"
+            << "  \"crawled_bytes\": " << scan_res.total_allocated_bytes << ",\n"
+            << "  \"apparent_bytes\": " << scan_res.total_apparent_bytes << ",\n"
+            << "  \"files_count\": " << scan_res.files_count << ",\n"
+            << "  \"dirs_count\": " << scan_res.dirs_count << ",\n"
+            << "  \"deleted_open_bytes\": " << rep.deleted_open_bytes << ",\n"
+            << "  \"unresolved_bytes\": " << rep.unresolved_bytes << ",\n"
+            << "  \"skipped_count\": " << scan_res.skipped_entries.size() << ",\n"
+            << "  \"restricted_pids_count\": " << proc_res.restricted_pids.size() << ",\n";
+
+        // Discovered system mount points
+        auto system_mounts = fs_scanner.discover_mounts(false);
+        json_ss << "  \"mounts\": [\n";
+        for (size_t i = 0; i < system_mounts.size(); ++i) {
+            json_ss << "    {\n"
+                    << "      \"mount_point\": \"" << escape_json(system_mounts[i].mount_point) << "\",\n"
+                    << "      \"device_name\": \"" << escape_json(system_mounts[i].device_name) << "\",\n"
+                    << "      \"filesystem_type\": \"" << escape_json(system_mounts[i].filesystem_type) << "\"\n"
+                    << "    }" << (i + 1 < system_mounts.size() ? "," : "") << "\n";
+        }
+        json_ss << "  ],\n";
+
+        // Findings array formatted for UI
+        json_ss << "  \"findings\": [\n";
+        for (size_t i = 0; i < analysis.findings.size(); ++i) {
+            const auto& f = analysis.findings[i];
+            std::string sev = to_string(f.severity);
+            std::string badge_cls = (sev == "critical") ? "badge-critical" : (sev == "warning" ? "badge-warning" : "badge-info");
+            std::string proc_str = "None (System accounting)";
+            int fd_val = -1;
+            uint64_t ino_val = 0;
+            uint64_t dev_val = 0;
+            if (!f.process_refs.empty()) {
+                const auto& p = f.process_refs[0];
+                proc_str = p.process_name + " (PID " + std::to_string(p.pid) + ", user " + p.user_name + ")";
+                fd_val = p.fd;
+                ino_val = p.inode;
+                dev_val = p.device_id;
+            }
+
+            json_ss << "    {\n"
+                << "      \"id\": " << i << ",\n"
+                << "      \"title\": \"" << escape_json(f.title) << "\",\n"
+                << "      \"severity\": \"" << (sev == "critical" ? "Critical" : (sev == "warning" ? "Warning" : "Info")) << "\",\n"
+                << "      \"severityClass\": \"" << badge_cls << "\",\n"
+                << "      \"relatedBytes\": \"" << format_bytes(f.related_bytes) << "\",\n"
+                << "      \"process\": \"" << escape_json(proc_str) << "\",\n"
+                << "      \"fd\": " << fd_val << ",\n"
+                << "      \"inode\": " << ino_val << ",\n"
+                << "      \"device\": " << dev_val << ",\n"
+                << "      \"summary\": \"" << escape_json(f.title) << "\",\n"
+                << "      \"guidance\": \"Guidance: Safe Inspection\",\n"
+                << "      \"confirmedFacts\": [\n";
+            for (size_t j = 0; j < f.confirmed_facts.size(); ++j) {
+                json_ss << "        \"" << escape_json(f.confirmed_facts[j]) << "\"" 
+                    << (j + 1 < f.confirmed_facts.size() ? "," : "") << "\n";
+            }
+            json_ss << "      ],\n"
+                << "      \"explanation\": \"" << escape_json(f.likely_explanation) << "\",\n"
+                << "      \"limitations\": [\n";
+            for (size_t j = 0; j < f.limitations.size(); ++j) {
+                json_ss << "        \"" << escape_json(f.limitations[j]) << "\""
+                    << (j + 1 < f.limitations.size() ? "," : "") << "\n";
+            }
+            json_ss << "      ],\n"
+                << "      \"recommendation\": \"" << escape_json(f.recommended_next_step) << "\"\n"
+                << "    }" << (i + 1 < analysis.findings.size() ? "," : "") << "\n";
+        }
+        json_ss << "  ],\n";
+
+        // Tree samples: top 15 largest entries
+        DirectoryScanner::sort_entries_by_allocated_size(scan_res.entries);
+        json_ss << "  \"tree\": [\n";
+        size_t max_tree = std::min<size_t>(scan_res.entries.size(), 15);
+        for (size_t i = 0; i < max_tree; ++i) {
+            const auto& e = scan_res.entries[i];
+            json_ss << "    {\n"
+                << "      \"path\": \"" << escape_json(e.path) << "\",\n"
+                << "      \"allocated\": \"" << format_bytes(e.allocated_bytes) << "\",\n"
+                << "      \"apparent\": \"" << format_bytes(e.apparent_bytes) << "\",\n"
+                << "      \"type\": \"" << entry_type_to_string(e.entry_type) << "\",\n"
+                << "      \"dev\": \"" << e.device_id << "\",\n"
+                << "      \"ino\": \"" << e.inode << "\"\n"
+                << "    }" << (i + 1 < max_tree ? "," : "") << "\n";
+        }
+        json_ss << "  ]\n"
+            << "}\n";
+
+        std::string json_data = json_ss.str();
+
+        // Write JSON file
         std::ofstream out(export_json_path);
         if (!out) {
-            // Try saving in current directory if web_ui not writable
             export_json_path = "ghostdisk_live_data.json";
             out.open(export_json_path);
         }
-
         if (out) {
-            out << "{\n"
-                << "  \"is_live\": true,\n"
-                << "  \"timestamp\": \"" << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << "\",\n"
-                << "  \"mount_point\": \"" << escape_json(fs.mount_point) << "\",\n"
-                << "  \"device_name\": \"" << escape_json(fs.device_name) << "\",\n"
-                << "  \"filesystem_type\": \"" << escape_json(fs.filesystem_type) << "\",\n"
-                << "  \"total_bytes\": " << fs.total_bytes << ",\n"
-                << "  \"used_bytes\": " << fs.used_bytes << ",\n"
-                << "  \"available_bytes\": " << fs.available_bytes << ",\n"
-                << "  \"reserved_bytes\": " << fs.reserved_or_unavailable_bytes << ",\n"
-                << "  \"crawled_bytes\": " << scan_res.total_allocated_bytes << ",\n"
-                << "  \"apparent_bytes\": " << scan_res.total_apparent_bytes << ",\n"
-                << "  \"files_count\": " << scan_res.files_count << ",\n"
-                << "  \"dirs_count\": " << scan_res.dirs_count << ",\n"
-                << "  \"deleted_open_bytes\": " << rep.deleted_open_bytes << ",\n"
-                << "  \"unresolved_bytes\": " << rep.unresolved_bytes << ",\n"
-                << "  \"skipped_count\": " << scan_res.skipped_entries.size() << ",\n"
-                << "  \"restricted_pids_count\": " << proc_res.restricted_pids.size() << ",\n";
-
-            // Findings array formatted for UI
-            out << "  \"findings\": [\n";
-            for (size_t i = 0; i < analysis.findings.size(); ++i) {
-                const auto& f = analysis.findings[i];
-                std::string sev = to_string(f.severity);
-                std::string badge_cls = (sev == "critical") ? "badge-critical" : (sev == "warning" ? "badge-warning" : "badge-info");
-                std::string proc_str = "None (System accounting)";
-                int fd_val = -1;
-                uint64_t ino_val = 0;
-                uint64_t dev_val = 0;
-                if (!f.process_refs.empty()) {
-                    const auto& p = f.process_refs[0];
-                    proc_str = p.process_name + " (PID " + std::to_string(p.pid) + ", user " + p.user_name + ")";
-                    fd_val = p.fd;
-                    ino_val = p.inode;
-                    dev_val = p.device_id;
-                }
-
-                out << "    {\n"
-                    << "      \"id\": " << i << ",\n"
-                    << "      \"title\": \"" << escape_json(f.title) << "\",\n"
-                    << "      \"severity\": \"" << (sev == "critical" ? "Critical" : (sev == "warning" ? "Warning" : "Info")) << "\",\n"
-                    << "      \"severityClass\": \"" << badge_cls << "\",\n"
-                    << "      \"relatedBytes\": \"" << format_bytes(f.related_bytes) << "\",\n"
-                    << "      \"process\": \"" << escape_json(proc_str) << "\",\n"
-                    << "      \"fd\": " << fd_val << ",\n"
-                    << "      \"inode\": " << ino_val << ",\n"
-                    << "      \"device\": " << dev_val << ",\n"
-                    << "      \"summary\": \"" << escape_json(f.title) << "\",\n"
-                    << "      \"guidance\": \"Guidance: Safe Inspection\",\n"
-                    << "      \"confirmedFacts\": [\n";
-                for (size_t j = 0; j < f.confirmed_facts.size(); ++j) {
-                    out << "        \"" << escape_json(f.confirmed_facts[j]) << "\"" 
-                        << (j + 1 < f.confirmed_facts.size() ? "," : "") << "\n";
-                }
-                out << "      ],\n"
-                    << "      \"explanation\": \"" << escape_json(f.likely_explanation) << "\",\n"
-                    << "      \"limitations\": [\n";
-                for (size_t j = 0; j < f.limitations.size(); ++j) {
-                    out << "        \"" << escape_json(f.limitations[j]) << "\""
-                        << (j + 1 < f.limitations.size() ? "," : "") << "\n";
-                }
-                out << "      ],\n"
-                    << "      \"recommendation\": \"" << escape_json(f.recommended_next_step) << "\"\n"
-                    << "    }" << (i + 1 < analysis.findings.size() ? "," : "") << "\n";
-            }
-            out << "  ],\n";
-
-            // Tree samples: top 10 largest entries
-            DirectoryScanner::sort_entries_by_allocated_size(scan_res.entries);
-            out << "  \"tree\": [\n";
-            size_t max_tree = std::min<size_t>(scan_res.entries.size(), 15);
-            for (size_t i = 0; i < max_tree; ++i) {
-                const auto& e = scan_res.entries[i];
-                out << "    {\n"
-                    << "      \"path\": \"" << escape_json(e.path) << "\",\n"
-                    << "      \"allocated\": \"" << format_bytes(e.allocated_bytes) << "\",\n"
-                    << "      \"apparent\": \"" << format_bytes(e.apparent_bytes) << "\",\n"
-                    << "      \"type\": \"" << entry_type_to_string(e.entry_type) << "\",\n"
-                    << "      \"dev\": \"" << e.device_id << "\",\n"
-                    << "      \"ino\": \"" << e.inode << "\"\n"
-                    << "    }" << (i + 1 < max_tree ? "," : "") << "\n";
-            }
-            out << "  ]\n"
-                << "}\n";
-
+            out << json_data;
+            out.close();
             std::cout << "\033[1;32m[+] Successfully exported live diagnostic data to: " << export_json_path << "\033[0m\n";
+        }
+
+        // Also write live_data.js for direct file:/// browser opening without CORS errors
+        fs::path ui_dir = resolved_web_ui;
+        if (ui_dir.empty()) {
+            fs::path p(export_json_path);
+            if (p.has_parent_path()) {
+                ui_dir = p.parent_path();
+            }
+        }
+        if (!ui_dir.empty()) {
+            std::string js_path = (ui_dir / "live_data.js").string();
+            std::ofstream js_out(js_path);
+            if (js_out) {
+                js_out << "// Auto-generated by GhostDisk\n"
+                       << "window.GHOSTDISK_LIVE_DATA = " << json_data << ";\n";
+                js_out.close();
+                std::cout << "\033[1;32m[+] Successfully exported browser script to: " << js_path << "\033[0m\n";
+            }
         }
     }
 
-    std::cout << "\n[*] Done. To view in browser, start: python3 -m http.server 8080 --directory web_ui\n";
+    std::cout << "\n[*] Done. To view in browser, start: python3 web_server.py (or python3 -m http.server 8080 --directory web_ui)\n";
     return 0;
 }

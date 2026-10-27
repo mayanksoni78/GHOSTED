@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none">
+  <!-- Minimalist Ghost Icon for GHOSTED -->
+  <path d="M12 2C7.58 2 4 5.58 4 10V20L7.5 18L10 20L12 18L14 20L16.5 18L20 20V10C20 5.58 16.42 2 12 2Z" 
+        fill="rgba(191, 195, 201, 0.12)" 
+        stroke="#BFC3C9" 
+        stroke-width="1.75" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  <circle cx="9" cy="9.5" r="1.5" fill="#BFC3C9"/>
+  <circle cx="15" cy="9.5" r="1.5" fill="#BFC3C9"/>
+</svg>

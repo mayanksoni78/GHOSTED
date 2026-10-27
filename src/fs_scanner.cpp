@@ -50,6 +50,31 @@ FsSnapshot FsScanner::scan_mount(const std::string& target_path) {
 
     snapshot.success = true;
 
+    // Resolve device_name and filesystem_type from system mount table
+    auto mounts = discover_mounts(true);
+    std::string best_mount;
+    for (const auto& m : mounts) {
+        if (m.mount_point == target_path) {
+            snapshot.device_name = m.device_name;
+            snapshot.filesystem_type = m.filesystem_type;
+            best_mount = m.mount_point;
+            break;
+        }
+        // Match longest matching prefix if not exact
+        if (target_path.rfind(m.mount_point, 0) == 0 && m.mount_point.length() > best_mount.length()) {
+            best_mount = m.mount_point;
+            snapshot.device_name = m.device_name;
+            snapshot.filesystem_type = m.filesystem_type;
+        }
+    }
+
+    if (snapshot.device_name.empty()) {
+        snapshot.device_name = "Root Storage";
+    }
+    if (snapshot.filesystem_type.empty()) {
+        snapshot.filesystem_type = "ext4";
+    }
+
 #elif defined(_WIN32)
     ULARGE_INTEGER free_bytes_available, total_bytes, total_free_bytes;
     BOOL res = GetDiskFreeSpaceExA(

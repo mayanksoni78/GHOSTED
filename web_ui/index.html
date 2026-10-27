@@ -3,21 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GHOSTED — Storage & File Diagnostics</title>
+  <title>GHOSTED — Haunted Telemetry & Linux Storage Diagnostics</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Ambient Spiderweb Background (Ghosted Full Frame) -->
+  <!-- Ambient Haunted Atmosphere Layers -->
+  <div class="haunted-fog-layer fog-drift-slow" aria-hidden="true"></div>
+  <div class="haunted-fog-layer fog-drift-fast" aria-hidden="true"></div>
+  <div class="spectral-vignette" aria-hidden="true"></div>
   <div class="spiderweb-full-bg" aria-hidden="true"></div>
 
   <div class="app-shell">
-    <!-- Compact Left Sidebar -->
+    <!-- Left Sidebar Navigation -->
     <aside class="sidebar">
       <div class="brand">
-        <img src="skull_logo.jpg" alt="GHOSTED Skull Logo" class="brand-skull-logo">
+        <div class="brand-logo-badge" title="GHOSTED">
+          <svg class="brand-ghost-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C7.58 2 4 5.58 4 10V20L7.5 18L10 20L12 18L14 20L16.5 18L20 20V10C20 5.58 16.42 2 12 2Z" fill="rgba(191, 195, 201, 0.12)"/>
+            <circle cx="9" cy="9.5" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="9.5" r="1.5" fill="currentColor"/>
+          </svg>
+        </div>
         <span class="brand-name">GHOSTED</span>
       </div>
 
@@ -47,7 +56,7 @@
             <path d="M11 8v6M8 11h6"/>
           </svg>
           Deleted-Open Files
-          <span class="nav-badge" id="findings-count-pill">3</span>
+          <span class="nav-badge" id="findings-count-pill">0</span>
         </button>
 
         <button class="nav-link" data-view="folders">
@@ -75,30 +84,29 @@
 
       <div class="sidebar-footer">
         <span class="sidebar-status-dot"></span>
-        <span class="sidebar-status-text">Read-Only Mode</span>
+        <span class="sidebar-status-text">Telemetry Active</span>
       </div>
     </aside>
 
     <!-- Main Content Area -->
     <main class="main-body">
-      <!-- Simplified Dashboard Header -->
+      <!-- Dashboard Header -->
       <header class="header-bar">
         <div class="header-left">
-          <span class="header-label">Disk:</span>
+          <span class="header-label">Mount:</span>
           <div class="mount-select-wrap">
             <select id="mount-select">
-              <option value="/" selected>/ (Root NVMe) — 512.00 GB ext4</option>
-              <option value="/home">/home (User Data) — 1024.00 GB ext4</option>
-              <option value="/var">/var (System Logs) — 256.00 GB xfs</option>
+              <option value="/" selected>/ (Root Filesystem)</option>
             </select>
           </div>
         </div>
 
         <div class="header-right">
           <span class="scan-status-text" id="scan-status-text">Ready to scan</span>
+          <span class="badge-timestamp" id="last-updated-badge">Last scan: --</span>
 
-          <!-- Subtle secondary import button -->
-          <label class="btn-subtle" title="Import live JSON report">
+          <!-- Import JSON Report -->
+          <label class="btn-subtle" title="Import diagnostic JSON report">
             <input type="file" id="input-load-json" accept=".json" style="display: none;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -108,8 +116,9 @@
             <span>Import JSON</span>
           </label>
 
-          <button id="btn-start-scan" class="btn-primary">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <!-- Primary Trigger Scan Button -->
+          <button id="btn-start-scan" class="btn-primary" title="Execute Linux storage diagnosis">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
             <span>Scan Disk</span>
@@ -125,7 +134,7 @@
           <button id="btn-cancel-scan" class="btn-text">Cancel</button>
         </div>
         <div class="progress-strip-bar">
-          <div class="progress-strip-fill" id="progress-bar-fill" style="width: 45%;"></div>
+          <div class="progress-strip-fill" id="progress-bar-fill" style="width: 15%;"></div>
         </div>
       </div>
 
@@ -141,39 +150,39 @@
             <div class="summary-stats-grid">
               <div class="stat-cell">
                 <span class="stat-label">Used Space</span>
-                <span class="stat-value text-accent" id="overview-used">11.89 GB</span>
+                <span class="stat-value text-accent" id="overview-used">--</span>
               </div>
               <div class="stat-cell">
                 <span class="stat-label">Available Space</span>
-                <span class="stat-value text-success" id="overview-avail">13.11 GB</span>
+                <span class="stat-value text-success" id="overview-avail">--</span>
               </div>
               <div class="stat-cell">
                 <span class="stat-label">Total Capacity</span>
-                <span class="stat-value" id="overview-total">25.00 GB</span>
+                <span class="stat-value" id="overview-total">--</span>
               </div>
               <div class="stat-cell">
                 <span class="stat-label">Usage Percentage</span>
-                <span class="stat-value" id="overview-bar-used-pct">48%</span>
+                <span class="stat-value" id="overview-bar-used-pct">--%</span>
               </div>
             </div>
           </div>
 
-          <!-- Clean Horizontal Usage Progress Bar -->
+          <!-- Usage Progress Bar -->
           <div class="usage-track-container">
             <div class="usage-track">
-              <div class="usage-fill" id="overview-bar-fill" style="width: 48%;"></div>
+              <div class="usage-fill" id="overview-bar-fill" style="width: 0%;"></div>
             </div>
             <div class="usage-sublabels">
-              <span>Used: <strong id="overview-legend-used">11.89 GB</strong></span>
-              <span>Available: <strong class="text-success" id="overview-legend-avail">13.11 GB</strong></span>
+              <span>Reported Used: <strong id="overview-legend-used">--</strong></span>
+              <span>Available Headroom: <strong class="text-success" id="overview-legend-avail">--</strong></span>
             </div>
           </div>
         </div>
 
-        <!-- Compact Storage Analysis (Replaces the large discrepancy breakdown & formula) -->
+        <!-- Storage Analysis Grid -->
         <div class="panel-card">
           <div class="card-header">
-            <h3>Storage Analysis</h3>
+            <h3>Storage Telemetry Analysis</h3>
             <span class="card-hint">Reconciled breakdown of crawled files vs kernel filesystem telemetry</span>
           </div>
 
@@ -181,35 +190,35 @@
             <div class="analysis-item">
               <div class="analysis-dot dot-scanned"></div>
               <div class="analysis-info">
-                <span class="analysis-label">Scanned Files</span>
-                <span class="analysis-desc">Files directly crawlable in directory tree</span>
+                <span class="analysis-label">Crawled Files</span>
+                <span class="analysis-desc">Direct physical block allocation in subtree</span>
               </div>
-              <strong class="analysis-size" id="stat-scanned-val">14.93 GB</strong>
+              <strong class="analysis-size" id="stat-scanned-val">--</strong>
             </div>
 
             <div class="analysis-item">
               <div class="analysis-dot dot-deleted"></div>
               <div class="analysis-info">
                 <span class="analysis-label">Deleted-Open Files</span>
-                <span class="analysis-desc">Unlinked files still held active by running processes</span>
+                <span class="analysis-desc">Unlinked files held by active processes</span>
               </div>
-              <strong class="analysis-size text-amber" id="stat-deleted-val">36 KB</strong>
+              <strong class="analysis-size text-amber" id="stat-deleted-val">0 B</strong>
             </div>
 
             <div class="analysis-item">
               <div class="analysis-dot dot-reserved"></div>
               <div class="analysis-info">
-                <span class="analysis-label">Reserved Space</span>
-                <span class="analysis-desc">Safety headroom protected by Linux for superuser</span>
+                <span class="analysis-label">Superuser Reserve</span>
+                <span class="analysis-desc">Safety headroom reserved by Linux for root</span>
               </div>
-              <strong class="analysis-size" id="stat-reserved-val">1.27 GB</strong>
+              <strong class="analysis-size" id="stat-reserved-val">--</strong>
             </div>
 
             <div class="analysis-item">
               <div class="analysis-dot dot-unexplained"></div>
               <div class="analysis-info">
-                <span class="analysis-label">Unexplained Difference</span>
-                <span class="analysis-desc">Filesystem metadata, journal, or restricted paths</span>
+                <span class="analysis-label">Unexplained Gap</span>
+                <span class="analysis-desc">Filesystem metadata, journal, or inaccessible paths</span>
               </div>
               <strong class="analysis-size" id="stat-unexplained-val">0 B</strong>
             </div>
@@ -219,8 +228,8 @@
         <!-- Important Findings Section -->
         <div class="panel-card">
           <div class="card-header">
-            <h3>Important Findings & Recommendations</h3>
-            <span class="card-hint">Issues requiring operator review or safe reclamation</span>
+            <h3>Diagnostic Findings & Recommendations</h3>
+            <span class="card-hint">Evidence-backed discrepancy items and safety recommendations</span>
           </div>
 
           <div class="findings-compact-list" id="overview-findings-list">
@@ -228,25 +237,25 @@
           </div>
         </div>
 
-        <!-- Optional Expandable Technical Details -->
+        <!-- Advanced Technical Details -->
         <details class="tech-accordion">
           <summary>
-            <span>Technical Details & Advanced Telemetry</span>
+            <span>Advanced Telemetry & Kernel Accounting</span>
             <span class="accordion-arrow">▾</span>
           </summary>
           <div class="tech-accordion-body">
             <div class="tech-metrics-grid">
               <div class="tech-cell">
                 <span class="tech-label">Directory Crawl Allocation</span>
-                <strong class="tech-value" id="tech-crawl-total">14.93 GB</strong>
+                <strong class="tech-value" id="tech-crawl-total">--</strong>
               </div>
               <div class="tech-cell">
                 <span class="tech-label">Deleted-Open Inodes</span>
-                <strong class="tech-value" id="tech-deleted-open">36 KB</strong>
+                <strong class="tech-value" id="tech-deleted-open">0 B</strong>
               </div>
               <div class="tech-cell">
                 <span class="tech-label">Superuser Safety Reserve</span>
-                <strong class="tech-value" id="tech-reserved">1.27 GB</strong>
+                <strong class="tech-value" id="tech-reserved">--</strong>
               </div>
               <div class="tech-cell">
                 <span class="tech-label">Noise Margin Tolerance</span>
@@ -281,9 +290,9 @@
               <thead>
                 <tr>
                   <th>Path</th>
-                  <th>Allocated Space</th>
+                  <th>Allocated Size</th>
                   <th>Apparent Size</th>
-                  <th>Type</th>
+                  <th>Entry Type</th>
                   <th>Inode</th>
                 </tr>
               </thead>
@@ -300,8 +309,8 @@
         <div class="panel-card">
           <div class="card-header">
             <div>
-              <h3>Deleted-But-Open Files</h3>
-              <span class="card-hint">Files unlinked from directory tree but still holding disk space</span>
+              <h3>Deleted-But-Open File Descriptors</h3>
+              <span class="card-hint">Reclaimable storage held by active Linux processes</span>
             </div>
             <div class="filter-group">
               <button class="filter-btn active" data-filter="all">All</button>
@@ -322,8 +331,8 @@
         <div class="panel-card">
           <div class="card-header">
             <div>
-              <h3>Large Folders</h3>
-              <span class="card-hint">Top storage consumers identified during directory crawl</span>
+              <h3>Top Storage Consumers</h3>
+              <span class="card-hint">Largest paths identified during Linux directory crawl</span>
             </div>
           </div>
 
@@ -333,7 +342,7 @@
                 <tr>
                   <th>Folder Path</th>
                   <th>Allocated Space</th>
-                  <th>Category</th>
+                  <th>Type / Category</th>
                 </tr>
               </thead>
               <tbody id="folders-table-body">
@@ -357,7 +366,7 @@
             </div>
             <div class="cleanup-reclaim-badge">
               <span class="badge-sub">Reclaimable</span>
-              <strong class="badge-amount" id="cleanup-reclaimable-size">20.00 MB</strong>
+              <strong class="badge-amount" id="cleanup-reclaimable-size">0 B</strong>
             </div>
           </div>
 
@@ -389,11 +398,11 @@
           <!-- Post-Cleanup Verification Result -->
           <div id="recovery-verification-card" class="verification-card hidden">
             <div class="verif-heading">
-              <span class="verif-icon">✓</span>
+              <span>✓</span>
               <strong>Cleanup Verified Successfully</strong>
             </div>
             <p class="verif-desc">
-              Reclaimed <strong class="text-success">+20.00 MB</strong>. Storage delta was confirmed with the filesystem and logged to the audit log.
+              Reclaimed storage confirmed with the filesystem and logged to the audit log.
             </p>
           </div>
         </div>
@@ -411,7 +420,7 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
+                <line x1="12" y1="3" x2="12" y2="3"/>
               </svg>
               Export JSON Report
             </button>
@@ -445,7 +454,7 @@
       <div class="modal-header">
         <div class="modal-header-left">
           <span id="modal-severity-badge" class="tag-status">Finding</span>
-          <h3 id="modal-finding-title">Deleted File Held Open</h3>
+          <h3 id="modal-finding-title">Diagnostic Finding</h3>
         </div>
         <button class="modal-close-btn" onclick="closeFindingModal()">&times;</button>
       </div>
@@ -478,6 +487,11 @@
     </div>
   </div>
 
+  <!-- Floating Toast Notifications -->
+  <div id="ghost-toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Scripts: live_data.js loads data for file:/// offline mode; app.js handles live sync & UI -->
+  <script src="live_data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
