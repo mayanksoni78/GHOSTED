@@ -8,6 +8,10 @@ lib/
 *.out
 *.app
 
+# Python cache
+__pycache__/
+*.pyc
+
 # IDE & OS
 .vscode/
 .idea/
